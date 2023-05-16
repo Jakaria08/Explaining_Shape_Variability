@@ -1,6 +1,6 @@
 module load python/3.8 boost
-virtualenv --no-download $SLURM_TMPDIR/env
-source $SLURM_TMPDIR/env/bin/activate
+virtualenv --no-download ~/ENV
+source ~/ENV/bin/activate
 pip install --no-index --upgrade pip
 
 DIR="/mesh/"
