@@ -1,0 +1,8 @@
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) libfabric/1.10.1     2) openmpi/4.0.3     3) ucx/1.8.0
+
+Traceback (most recent call last):
+  File "/home/jakaria/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/main.py", line 11, in <module>
+    from reconstruction import AE, run, eval_error
+ModuleNotFoundError: No module named 'reconstruction'
