@@ -63,7 +63,7 @@ class CoMA(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return 'COMA_data.zip'
+        return 'COMA_data.zip' 
 
     @property
     def processed_file_names(self):
@@ -82,12 +82,12 @@ class CoMA(InMemoryDataset):
             raise RuntimeError(
                 ('Expected the split of interpolation or extrapolation, but'
                  ' found {}').format(self.split))
-
+    '''
     def download(self):
         raise RuntimeError(
             'Dataset not found. Please download COMA_data.zip from {} and '
             'move it to {}'.format(self.url, self.raw_dir))
-
+    '''
     def process(self):
         print('Processing...')
 
