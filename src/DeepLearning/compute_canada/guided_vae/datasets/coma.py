@@ -82,16 +82,16 @@ class CoMA(InMemoryDataset):
             raise RuntimeError(
                 ('Expected the split of interpolation or extrapolation, but'
                  ' found {}').format(self.split))
-    '''
+
     def download(self):
         raise RuntimeError(
             'Dataset not found. Please download COMA_data.zip from {} and '
             'move it to {}'.format(self.url, self.raw_dir))
-    '''
+    
     def process(self):
         print('Processing...')
 
-        labels = torch.load(f"./data/CoMA/raw/hippocampus/labels.pt")
+        labels = torch.load(f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
 
         #X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), stratify=list(labels.values()), test_size=0.2, random_state=0)
         X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), test_size=0.2, random_state=28)
