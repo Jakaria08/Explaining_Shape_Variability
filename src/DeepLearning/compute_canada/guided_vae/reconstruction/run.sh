@@ -8,4 +8,4 @@
 #SBATCH --account=def-uofavis-ab
 module load cuda cudnn
 source ~/ENV/bin/activate
-python /home/jakaria/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/main.py
+python main.py
