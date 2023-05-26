@@ -1,8 +1,0 @@
-
-Due to MODULEPATH changes, the following have been reloaded:
-  1) libfabric/1.10.1     2) openmpi/4.0.3     3) ucx/1.8.0
-
-/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/utils/utils.py:19: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at /home/coulombc/wheels_builder/tmp.17382/python-3.8/torch/torch/csrc/utils/tensor_new.cpp:230.)
-  torch.LongTensor([spmat.tocoo().row,
-[32m[I 2023-05-22 20:01:16,828][0m A new study created in memory with name: no-name-88b16305-3576-4089-ac53-ad50beb481c3[0m
-[32m[I 2023-05-22 20:03:07,062][0m Trial 0 finished with values: [4.443660259246826, 0.1199111079676467] and parameters: {'epochs': 200, 'batch_size': 20, 'w_cls': 59, 'beta': 0.23089371927227678, 'learning_rate': 0.0007863447739334754, 'learning_rate_decay': 0.86, 'decay_step': 39, 'sequence_length': 6, 'dilation': 1, 'out_channel': 16}. [0m

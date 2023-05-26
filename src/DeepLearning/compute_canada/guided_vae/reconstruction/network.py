@@ -145,9 +145,13 @@ class AE(nn.Module):
 
         return sample
 
-    def reg(self, z):
+    def reg(self, z): # first excitation
         z = torch.split(z, 1, 1)[0]
         return self.reg_sq(z)
+
+    def reg_2(self, z): # second excitation
+        z = torch.split(z, 1, 1)[1]
+        return self.reg_sq(z)    
 
     def forward(self, x, *indices):
         mu, log_var = self.encoder(x)
