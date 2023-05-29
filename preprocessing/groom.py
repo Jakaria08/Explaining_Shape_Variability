@@ -32,10 +32,14 @@ def start_grooming(args):
     for mesh_data in tqdm((glob(f"{args.data_dir}*.ply"))):
         with suppress_stdout():
             # Extract filename
-            filename = mesh_data.split("/")[-1].split(".")[0]
-
+            mesh_data = os.path.normpath(mesh_data)
+            filename = os.path.split(mesh_data)[-1].split(".")[0]
+            #print(mesh_data)
+            #print("\n")
+            #print(filename)
+            
             # Read binary segmentation file
-            shape_seg = sw.Mesh(mesh_data)
+            mesh_shape = sw.Mesh(mesh_data)
 
             # Center mesh
             center = mesh_shape.center()
@@ -59,7 +63,8 @@ def start_grooming(args):
 
             # Append mesh to list
             mesh_dict[filename] = mesh_shape
-
+            
+    '''        
     # Find reference medoid shape
     print("[INFO] Looking for reference (medoid) shape ...")
     mesh_list = list(mesh_dict.values())
@@ -72,8 +77,9 @@ def start_grooming(args):
     path = f"{args.output_dir}reference_medoid_shape/"
     mkdir(path)
     ref_mesh.write(f"{path}{ref_name}.ply")
-
+    '''
     # Align all meshes to the reference medoid shape
+    ref_mesh = mesh_dict["torus_bump_template"]
     path = f"{args.output_dir}after_alignment/"
     mkdir(path)
     for name, mesh in tqdm(mesh_dict.items()):
@@ -83,12 +89,12 @@ def start_grooming(args):
             # apply rigid transform
             mesh.applyTransform(rigid_transform)
             mesh.write(f"{path}{name}.ply")
-
+    
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Grooming Pipeline')
-    parser.add_argument('--data_dir', type=str, default='binary_segmentations/')
+    parser.add_argument('--data_dir', type=str, default='torus_bump_3/torus_bump_random_500_thickness/')
     parser.add_argument('--output_dir', type=str, default='groomed_data/')
     args = parser.parse_args()
 
