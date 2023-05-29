@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from sklearn.preprocessing import MinMaxScaler
 
 parser = argparse.ArgumentParser(description='Synthetic Dataset')
-parser.add_argument('--dataset', type=str, default='all', choices=['all', 'box_bump', 'torus_bump'])
+parser.add_argument('--dataset', type=str, default='torus_bump', choices=['all', 'box_bump', 'torus_bump'])
 args = parser.parse_args()
 
 
@@ -79,31 +79,52 @@ def create_torus_bump_files():
     # Create template file
     with suppress_stdout():
         filepath = "torus_bump/torus_bump_template.ply"
-        a = torus(1, 0.35)
+        a = torus(1, 0.4)
         a.save(filepath, samples=30000)
 
     # Create mesh files and save labels
     labels = {}
-    feature_range = np.linspace(0, 360, 500, endpoint=False)
+    feature_range_thickness = np.linspace(0.3, 0.5, 15, endpoint=False)
+    feature_range_angle = np.linspace(0, 360, 500, endpoint=False)
     scaler = MinMaxScaler()
-    scaler.fit(feature_range.reshape(-1, 1))
+    scaler.fit(feature_range_angle.reshape(-1, 1))
+    #scaler.fit(feature_range_thickness.reshape(-1, 1))
 
     i = 0
-    for angle in tqdm(feature_range):
+    #for angle, thickness in tqdm(zip(feature_range_angle, feature_range_thickness)):
+    for angle in tqdm(feature_range_angle):
         with suppress_stdout():
             filepath = f'torus_bump/torus_bump_{i:03d}.ply'
             filename = filepath.split("/")[-1].split(".")[0]
             x = np.cos(np.deg2rad(angle))
             y = np.sin(np.deg2rad(angle))
-            labels[filename] = scaler.transform(np.array([angle]).reshape(-1, 1)).item()
+            thickness = np.random.choice(feature_range_thickness)
+            labels[filename] = np.array([scaler.transform(np.array([angle]).reshape(-1, 1)).item(), thickness])
 
-            b = sphere(0.6).translate((x, y, 0))
+            #a = torus(1, thickness)
+            b = sphere(0.7).translate((x, y, 0))
             f = union(a, b, k=0.2)
             f.save(filepath, samples=20000)
             i += 1
 
     torch.save(labels, "torus_bump\\torus_bump_labels.pt")
-    pd.DataFrame(list(labels.items()), columns=['shape', 'label']).to_csv("torus_bump\\torus_bump_labels.csv")
+
+    #pd.DataFrame(list(labels.items()), columns=['shape', 'label']).to_csv("torus_bump\\torus_bump_labels.csv")
+
+    # Create an empty DataFrame
+    df = pd.DataFrame(columns=['shape', 'angle', 'thickness'])
+
+    # Iterate over the items in the labels dictionary
+    for shape, values in labels.items():
+        # Access the individual values from the NumPy array
+        value1 = values[0]
+        value2 = values[1]
+    
+        # Append a new row with the values to the DataFrame
+        df = df.append({'shape': shape, 'angle': value1, 'thickness': value2}, ignore_index=True)
+
+    # Write the DataFrame to an Excel file
+    df.to_csv("torus_bump\\torus_bump_labels.csv")
 
     # Convert meshes into .vtk file format
     if not os.path.exists("torus_bump\\vtk_files"):

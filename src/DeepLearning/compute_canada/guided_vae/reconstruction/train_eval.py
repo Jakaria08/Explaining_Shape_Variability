@@ -56,7 +56,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
 
 	    # VAE + Exhibition
         optimizer.zero_grad()
-        out, mu, log_var, re = model(x)
+        out, mu, log_var, re, re2 = model(x) # re2 for excitation
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
             loss_cls = F.mse_loss(re, label, reduction='mean')
@@ -104,7 +104,7 @@ def test(model, loader, device, beta):
         for i, data in enumerate(loader):
             x = data.x.to(device)
             y = data.y.to(device)
-            pred, mu, log_var, re = model(x)
+            pred, mu, log_var, re, re2 = model(x)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
             reg_loss += F.mse_loss(re, y, reduction='mean')
@@ -123,7 +123,7 @@ def eval_error(model, test_loader, device, meshdata, out_dir):
         for i, data in enumerate(test_loader):
             x = data.x.to(device)
             # pred = model(x)
-            pred, mu, log_var, re = model(x)
+            pred, mu, log_var, re, re2 = model(x)
             num_graphs = data.num_graphs
             reshaped_pred = (pred.view(num_graphs, -1, 3).cpu() * std) + mean
             reshaped_x = (x.view(num_graphs, -1, 3).cpu() * std) + mean
