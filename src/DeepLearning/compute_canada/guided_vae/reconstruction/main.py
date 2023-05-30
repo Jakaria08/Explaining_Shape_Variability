@@ -179,28 +179,33 @@ def objective(trial):
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
     ages = []
+    label_2 = []
     latent_codes = []
     with torch.no_grad():
         for i, data in enumerate(test_loader):
             x = data.x.to(device)
             y = data.y.to(device)
-            recon, mu, log_var, re = model(x)
+            recon, mu, log_var, re, re_2 = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            ages.append(y)
+            ages.append(y[0])
+            label_2.append(y[1]) 
     latent_codes = torch.concat(latent_codes)
     ages = torch.concat(ages).view(-1,1)
+    label_2 = torch.concat(label_2).view(-1,1)
 
     # Pearson Correlation Coefficient
     pcc = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
-
+    pcc_label_2 = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=ages.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
-    
+    sap_score_label_2 = sap(factors=label_2.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
 
     print("")
     print(f"Correlation: {pcc}")
+    print(f"Correlation Label 2: {pcc_label_2}")
     print(f"SAP Score:   {sap_score}")
+    print(f"SAP Score Label 2:   {sap_score_label_2}")
     print("")
 
     if sap_score > 0.35:

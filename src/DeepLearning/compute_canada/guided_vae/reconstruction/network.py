@@ -101,6 +101,16 @@ class AE(nn.Module):
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Linear(8, 1))
 
+        # Excitation 2
+        self.reg_sq_2 = nn.Sequential(
+            nn.Linear(1, 8),
+            nn.BatchNorm1d(8),
+            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.Linear(8, 8),
+            nn.BatchNorm1d(8),
+            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.Linear(8, 1))
+
     def reset_parameters(self):
         for name, param in self.named_parameters():
             if 'bias' in name:
@@ -151,7 +161,7 @@ class AE(nn.Module):
 
     def reg_2(self, z): # second excitation
         z = torch.split(z, 1, 1)[1]
-        return self.reg_sq(z)    
+        return self.reg_sq_2(z)    
 
     def forward(self, x, *indices):
         mu, log_var = self.encoder(x)
