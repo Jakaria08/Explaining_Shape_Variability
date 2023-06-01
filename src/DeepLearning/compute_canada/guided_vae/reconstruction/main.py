@@ -216,6 +216,10 @@ def objective(trial):
         torch.save(meshdata.std, f"{model_path}std.pt")        
         torch.save(meshdata.mean, f"{model_path}mean.pt")        
         torch.save(meshdata.template_face, f"{model_path}faces.pt")
+
+        torch.save(latent_codes, f"{model_path}latent_codes.pt")
+        torch.save(ages, f"{model_path}ages.pt")
+
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
