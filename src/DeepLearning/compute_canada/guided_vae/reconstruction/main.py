@@ -220,7 +220,7 @@ def objective(trial):
         torch.save(latent_codes, f"{model_path}latent_codes.pt")
         torch.save(angles, f"{model_path}angles.pt")
 
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed_torus/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
@@ -229,7 +229,7 @@ def objective(trial):
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize'])

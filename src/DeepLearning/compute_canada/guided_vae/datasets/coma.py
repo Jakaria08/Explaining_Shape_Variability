@@ -36,8 +36,8 @@ class CoMA(InMemoryDataset):
                  pre_transform=None):
         self.split = split
         # self.test_exp = test_exp
-        if not osp.exists(osp.join(root, 'processed_torus', self.split)):
-            os.makedirs(osp.join(root, 'processed_torus', self.split))
+        if not osp.exists(osp.join(root, 'processed', self.split)):
+            os.makedirs(osp.join(root, 'processed', self.split))
         # if self.split == 'extrapolation':
         #     if self.test_exp not in self.categories:
         #         raise RuntimeError(
@@ -144,7 +144,7 @@ class CoMA(InMemoryDataset):
         torch.save(self.collate(train_data_list), self.processed_paths[0])
         torch.save(self.collate(val_data_list), self.processed_paths[1])
         torch.save(self.collate(test_data_list), self.processed_paths[2])
-        torch.save(train_val_test_files, os.path.join(self.root, "processed_torus/train_val_test_files.pt"))
-        torch.save(train_data_list, os.path.join(self.root, "processed_torus/train_meshes.pt"))
-        torch.save(val_data_list, os.path.join(self.root, "processed_torus/val_meshes.pt"))
-        torch.save(test_data_list, os.path.join(self.root, "processed_torus/test_meshes.pt"))
+        torch.save(train_val_test_files, os.path.join(self.root, "processed/train_val_test_files.pt"))
+        torch.save(train_data_list, os.path.join(self.root, "processed/train_meshes.pt"))
+        torch.save(val_data_list, os.path.join(self.root, "processed/val_meshes.pt"))
+        torch.save(test_data_list, os.path.join(self.root, "processed/test_meshes.pt"))
