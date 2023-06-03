@@ -36,8 +36,8 @@ class CoMA(InMemoryDataset):
                  pre_transform=None):
         self.split = split
         # self.test_exp = test_exp
-        if not osp.exists(osp.join(root, 'processed', self.split)):
-            os.makedirs(osp.join(root, 'processed', self.split))
+        if not osp.exists(osp.join(root, 'processed_torus', self.split)):
+            os.makedirs(osp.join(root, 'processed_torus', self.split))
         # if self.split == 'extrapolation':
         #     if self.test_exp not in self.categories:
         #         raise RuntimeError(
@@ -91,7 +91,7 @@ class CoMA(InMemoryDataset):
     def process(self):
         print('Processing...')
 
-        labels = torch.load(f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
+        labels = torch.load(f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/labels.pt")
 
         #X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), stratify=list(labels.values()), test_size=0.2, random_state=0)
         X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), test_size=0.2, random_state=28)
@@ -104,7 +104,7 @@ class CoMA(InMemoryDataset):
         #X_val = X_test[:51]
         #X_test_new = X_test[51:]
 
-        fps = glob(osp.join(self.raw_dir, 'hippocampus/*.ply'))
+        fps = glob(osp.join(self.raw_dir, 'torus/*.ply'))
         if len(fps) == 0:
             extract_zip(self.raw_paths[0], self.raw_dir, log=False)
             fps = glob(osp.join(self.raw_dir, '*/*/*.ply'))
@@ -143,7 +143,7 @@ class CoMA(InMemoryDataset):
         torch.save(self.collate(train_data_list), self.processed_paths[0])
         torch.save(self.collate(val_data_list), self.processed_paths[1])
         torch.save(self.collate(test_data_list), self.processed_paths[2])
-        torch.save(train_val_test_files, os.path.join(self.root, "processed/train_val_test_files.pt"))
-        torch.save(train_data_list, os.path.join(self.root, "processed/train_meshes.pt"))
-        torch.save(val_data_list, os.path.join(self.root, "processed/val_meshes.pt"))
-        torch.save(test_data_list, os.path.join(self.root, "processed/test_meshes.pt"))
+        torch.save(train_val_test_files, os.path.join(self.root, "processed_torus/train_val_test_files.pt"))
+        torch.save(train_data_list, os.path.join(self.root, "processed_torus/train_meshes.pt"))
+        torch.save(val_data_list, os.path.join(self.root, "processed_torus/val_meshes.pt"))
+        torch.save(test_data_list, os.path.join(self.root, "processed_torus/test_meshes.pt"))

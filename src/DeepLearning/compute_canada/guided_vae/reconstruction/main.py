@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 args.work_dir = osp.dirname(osp.realpath(__file__))
 args.data_fp = osp.join(args.work_dir, '..', 'data', args.dataset)
-args.out_dir = osp.join(args.work_dir, '..', 'data', 'out', args.exp_name)
+args.out_dir = osp.join(args.work_dir, '..', 'data', 'out_torus', args.exp_name)
 args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 #print(args)
 
@@ -87,7 +87,7 @@ def set_seed(seed):
 set_seed(args.seed)
 
 # load dataset
-template_fp = osp.join(args.data_fp, 'template', 'template.ply')
+template_fp = osp.join(args.data_fp, 'template_torus', 'template.ply')
 meshdata = MeshData(args.data_fp,
                     template_fp,
                     split=args.split,
@@ -97,7 +97,7 @@ val_loader = DataLoader(meshdata.val_dataset, batch_size=args.batch_size)
 test_loader = DataLoader(meshdata.test_dataset, batch_size=args.batch_size)
 
 # generate/load transform matrices
-transform_fp = osp.join(args.data_fp, 'transform.pkl')
+transform_fp = osp.join(args.data_fp, 'transform_torus', 'transform.pkl')
 if not osp.exists(transform_fp):
     print('Generating transform matrices...')
     mesh = Mesh(filename=template_fp)
@@ -178,7 +178,7 @@ def objective(trial):
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
-    ages = []
+    angles = []
     latent_codes = []
     with torch.no_grad():
         for i, data in enumerate(test_loader):
@@ -187,15 +187,15 @@ def objective(trial):
             recon, mu, log_var, re = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            ages.append(y)
+            angles.append(y)
     latent_codes = torch.concat(latent_codes)
-    ages = torch.concat(ages).view(-1,1)
+    angles = torch.concat(angles).view(-1,1)
 
     # Pearson Correlation Coefficient
-    pcc = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
+    pcc = stats.pearsonr(angles.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
 
     # SAP Score
-    sap_score = sap(factors=ages.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
+    sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
     
 
     print("")
@@ -204,7 +204,7 @@ def objective(trial):
     print("")
 
     if sap_score > 0.35:
-        model_path = f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
+        model_path = f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
         torch.save(args.in_channels, f"{model_path}in_channels.pt")
@@ -218,9 +218,9 @@ def objective(trial):
         torch.save(meshdata.template_face, f"{model_path}faces.pt")
 
         torch.save(latent_codes, f"{model_path}latent_codes.pt")
-        torch.save(ages, f"{model_path}ages.pt")
+        torch.save(angles, f"{model_path}angles.pt")
 
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed_torus/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
