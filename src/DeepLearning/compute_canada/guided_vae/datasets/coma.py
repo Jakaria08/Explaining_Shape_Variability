@@ -48,6 +48,7 @@ class CoMA(InMemoryDataset):
         #         os.makedirs(
         #             osp.join(root, 'processed', self.split, self.test_exp))
         super().__init__(root, transform, pre_transform)
+        #print(self.processed_dir)
         
         if data_split == "train":
             path = self.processed_paths[0]
