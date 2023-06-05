@@ -10,7 +10,7 @@ def read_mesh(path):
     edge_index = torch.cat([face[:2], face[1:], face[::2]], dim=1)
     edge_index = to_undirected(edge_index)
     
-    labels = torch.load("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
+    labels = torch.load("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
     subject = str(path.split("/")[-1].split(".")[0])
     y = torch.Tensor([labels[subject]])
 
