@@ -43,18 +43,24 @@ test_loader = DataLoader(meshdata.test_dataset, batch_size=1)
 
 ages_predict = []
 mesh_predict = []
+x_data = []
 with torch.no_grad():
     for i, data in enumerate(test_loader):
-        print("test...")
+        #print("test...")
         x = data.x.to(device)
         # pred = model(x)
         pred, mu, log_var, re = model(x)
         ages_predict.append(re)
-        #num_graphs = data.num_graphs
-        #reshaped_pred = (pred.view(num_graphs, -1, 3).cpu() * std) + mean
-        #reshaped_x = (x.view(num_graphs, -1, 3).cpu() * std) + mean
-        pred = pred.cpu().numpy()
-        mesh_predict.append(pred)
+        num_graphs = data.num_graphs
+
+        reshaped_pred = (pred.view(num_graphs, -1, 3).cpu() * std) + mean
+        reshaped_x = (x.view(num_graphs, -1, 3).cpu() * std) + mean
+        
+        reshaped_pred = reshaped_pred.cpu().numpy()
+        mesh_predict.append(reshaped_pred)
+
+        reshaped_x = reshaped_x.cpu().numpy()
+        x_data.append(reshaped_x)
         # Save the reshaped prediction as a NumPy array
         #reshaped_pred *= 300
         #reshaped_x *= 300
@@ -64,3 +70,6 @@ torch.save(ages_predict, f"{model_path}ages_predict.pt")
 
 mesh_predict_np = np.array(mesh_predict)
 np.save(f"{model_path}mesh_predict.npy", mesh_predict_np)
+
+x_data_np = np.array(x_data)
+np.save(f"{model_path}x_data_np.npy", x_data_np)
