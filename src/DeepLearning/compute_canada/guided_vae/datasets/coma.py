@@ -106,10 +106,11 @@ class CoMA(InMemoryDataset):
         #X_test_new = X_test[51:]
 
         fps = glob(osp.join(self.raw_dir, 'torus/*.ply'))
+        '''
         if len(fps) == 0:
             extract_zip(self.raw_paths[0], self.raw_dir, log=False)
             fps = glob(osp.join(self.raw_dir, '*/*/*.ply'))
-
+        '''
         train_data_list, val_data_list, test_data_list  = [], [], []
         train_val_test_files = {"train": X_train, "val": X_val, "test": X_test}
         for idx, fp in enumerate(tqdm(fps)):
