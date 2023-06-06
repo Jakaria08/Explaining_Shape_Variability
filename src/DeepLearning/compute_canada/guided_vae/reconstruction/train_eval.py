@@ -58,15 +58,15 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
-
+        #print(label)
 	    # VAE + Exhibition
         optimizer.zero_grad()
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
-            loss_cls = F.mse_loss(re, label[:, 0], reduction='mean')
+            loss_cls = F.mse_loss(re, label[:, :, 0], reduction='mean')
             loss += loss_cls * w_cls
-            loss_cls_2 = F.mse_loss(re_2, label[:, 1], reduction='mean')
+            loss_cls_2 = F.mse_loss(re_2, label[:, :, 1], reduction='mean')
             loss += loss_cls_2 * w_cls
         loss.backward()        
         optimizer.step()
@@ -78,7 +78,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var).detach()
             z = z[:, 1:]
             cls1 = model_c(z)
-            loss = F.mse_loss(cls1, label[:, 0], reduction='mean')
+            loss = F.mse_loss(cls1, label[:, :, 0], reduction='mean')
             cls1_error += loss.item()
             loss *= w_cls
             loss.backward()
@@ -90,7 +90,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             z = z[:, 1:]
             cls2 = model_c(z)
-            label1 = torch.empty_like(label[:, 0]).fill_(0.5)
+            label1 = torch.empty_like(label[:, :, 0]).fill_(0.5)
             loss = F.mse_loss(cls2, label1, reduction='mean')
             cls2_error += loss.item()
             loss *= w_cls
@@ -102,7 +102,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var).detach()
             z = z[:, torch.cat((torch.tensor([0]), torch.tensor(range(2, z.shape[1]))), dim=0)]
             cls1_2 = model_c_2(z)
-            loss = F.mse_loss(cls1_2, label[:, 1], reduction='mean')
+            loss = F.mse_loss(cls1_2, label[:, :, 1], reduction='mean')
             cls1_error_2 += loss.item()
             loss *= w_cls
             loss.backward()
@@ -114,7 +114,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             z = z[:, torch.cat((torch.tensor([0]), torch.tensor(range(2, z.shape[1]))), dim=0)]
             cls2_2 = model_c_2(z)
-            label1 = torch.empty_like(label[:, 1]).fill_(0.5)
+            label1 = torch.empty_like(label[:, :, 1]).fill_(0.5)
             loss = F.mse_loss(cls2_2, label1, reduction='mean')
             cls2_error_2 += loss.item()
             loss *= w_cls
@@ -139,8 +139,8 @@ def test(model, loader, device, beta):
             pred, mu, log_var, re, re_2 = model(x)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
-            reg_loss += F.mse_loss(re, y[0], reduction='mean')
-            reg_loss_2 += F.mse_loss(re_2, y[1], reduction='mean')
+            reg_loss += F.mse_loss(re, y[:, :, 0], reduction='mean')
+            reg_loss_2 += F.mse_loss(re_2, y[:, :, 1], reduction='mean')
 
     return total_loss / len(loader)
 

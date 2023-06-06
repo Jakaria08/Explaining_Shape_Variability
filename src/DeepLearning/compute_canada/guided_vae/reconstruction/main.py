@@ -191,8 +191,8 @@ def objective(trial):
             recon, mu, log_var, re, re_2 = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            ages.append(y[:, 0])
-            score.append(y[:, 1]) 
+            ages.append(y[:, :, 0])
+            score.append(y[:, :, 1]) 
     latent_codes = torch.concat(latent_codes)
     ages = torch.concat(ages).view(-1,1)
     score = torch.concat(score).view(-1,1)
@@ -214,7 +214,7 @@ def objective(trial):
     print(f"SAP Score Label 2:   {sap_score_cognitive}")
     print("")
 
-    if sap_score > 0.35:
+    if sap_score > 0.0035:
         model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
