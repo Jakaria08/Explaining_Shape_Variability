@@ -179,7 +179,7 @@ def objective(trial):
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
     ages = []
-    label_2 = []
+    score = []
     latent_codes = []
     with torch.no_grad():
         for i, data in enumerate(test_loader):
@@ -189,23 +189,23 @@ def objective(trial):
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
             ages.append(y[0])
-            label_2.append(y[1]) 
+            score.append(y[1]) 
     latent_codes = torch.concat(latent_codes)
     ages = torch.concat(ages).view(-1,1)
-    label_2 = torch.concat(label_2).view(-1,1)
+    score = torch.concat(score).view(-1,1)
 
     # Pearson Correlation Coefficient
     pcc = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
-    pcc_label_2 = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
+    pcc_score = stats.pearsonr(score.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=ages.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
-    sap_score_label_2 = sap(factors=label_2.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
+    sap_score_cognitive = sap(factors=score.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
 
     print("")
     print(f"Correlation: {pcc}")
-    print(f"Correlation Label 2: {pcc_label_2}")
+    print(f"Correlation cognitive score: {pcc_score}")
     print(f"SAP Score:   {sap_score}")
-    print(f"SAP Score Label 2:   {sap_score_label_2}")
+    print(f"SAP Score Label 2:   {sap_score_cognitive}")
     print("")
 
     if sap_score > 0.35:
@@ -225,7 +225,7 @@ def objective(trial):
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
-    return euclidean_distance, sap_score
+    return euclidean_distance, sap_score, sap_score_cognitive
 
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
@@ -233,5 +233,5 @@ class LogAfterEachTrial:
         torch.save(trials, "/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
-study = optuna.create_study(directions=['minimize', 'maximize'])
+study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
 study.optimize(objective, n_trials=300, callbacks=[log_trials])

@@ -131,6 +131,7 @@ def test(model, loader, device, beta):
     total_loss = 0
     recon_loss = 0
     reg_loss = 0
+    reg_loss_2 = 0
     with torch.no_grad():
         for i, data in enumerate(loader):
             x = data.x.to(device)
@@ -139,7 +140,7 @@ def test(model, loader, device, beta):
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
             reg_loss += F.mse_loss(re, y[0], reduction='mean')
-            reg_loss += F.mse_loss(re_2, y[1], reduction='mean')
+            reg_loss_2 += F.mse_loss(re_2, y[1], reduction='mean')
 
     return total_loss / len(loader)
 
