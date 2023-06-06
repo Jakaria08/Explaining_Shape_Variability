@@ -105,14 +105,15 @@ class CoMA(InMemoryDataset):
         #X_test_new = X_test[51:]
 
         fps = glob(osp.join(self.raw_dir, 'hippocampus/*.ply'))
+        '''
         if len(fps) == 0:
             extract_zip(self.raw_paths[0], self.raw_dir, log=False)
             fps = glob(osp.join(self.raw_dir, '*/*/*.ply'))
-
+        '''
         train_data_list, val_data_list, test_data_list  = [], [], []
         train_val_test_files = {"train": X_train, "val": X_val, "test": X_test}
         for idx, fp in enumerate(tqdm(fps)):
-            data = read_mesh(fp)
+            #data = read_mesh(fp)
             # if self.pre_transform is not None:
             #     data = self.pre_transform(data)
 
@@ -120,15 +121,19 @@ class CoMA(InMemoryDataset):
             if self.split == 'interpolation':
                 #if (idx % 100) < 10:
                 if subject in X_test:
+                    data = read_mesh(fp)
                     test_data_list.append(data)
                     #train_val_test_files["test"].append(fp.split("/")[-1])
                 elif subject in X_val:
+                    data = read_mesh(fp)
                     val_data_list.append(data)
                 elif subject in X_train:
+                    data = read_mesh(fp)
                     train_data_list.append(data)
                     #train_val_test_files["train"].append(fp.split("/")[-1])
                 else:
-                    raise RuntimeError('ERROR...')
+                    #raise RuntimeError('ERROR...')
+                    continue
 
             # elif self.split == 'extrapolation':
             #     if fp.split('/')[-2] == self.test_exp:

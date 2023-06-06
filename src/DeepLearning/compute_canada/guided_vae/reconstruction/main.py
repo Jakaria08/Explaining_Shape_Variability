@@ -50,9 +50,10 @@ parser.add_argument('--seed', type=int, default=1)
 
 args = parser.parse_args()
 
-args.work_dir = osp.dirname(osp.realpath(__file__))
-args.data_fp = osp.join(args.work_dir, '..', 'data', args.dataset)
-args.out_dir = osp.join(args.work_dir, '..', 'data', 'out', args.exp_name)
+#args.work_dir = osp.dirname(osp.realpath(__file__))
+args.work_dir = "/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae"
+args.data_fp = osp.join(args.work_dir, 'data', args.dataset)
+args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
 args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 #print(args)
 
@@ -87,7 +88,9 @@ def set_seed(seed):
 set_seed(args.seed)
 
 # load dataset
+print(args.data_fp)
 template_fp = osp.join(args.data_fp, 'template', 'template.ply')
+print(template_fp)
 meshdata = MeshData(args.data_fp,
                     template_fp,
                     split=args.split,
@@ -188,11 +191,14 @@ def objective(trial):
             recon, mu, log_var, re, re_2 = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            ages.append(y[0])
-            score.append(y[1]) 
+            ages.append(y[:, 0])
+            score.append(y[:, 1]) 
     latent_codes = torch.concat(latent_codes)
     ages = torch.concat(ages).view(-1,1)
     score = torch.concat(score).view(-1,1)
+
+    print(len(ages.view(-1).cpu().numpy()))
+    print(len(latent_codes[:,0].cpu().numpy()))
 
     # Pearson Correlation Coefficient
     pcc = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
