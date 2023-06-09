@@ -97,7 +97,7 @@ val_loader = DataLoader(meshdata.val_dataset, batch_size=args.batch_size)
 test_loader = DataLoader(meshdata.test_dataset, batch_size=args.batch_size)
 
 # generate/load transform matrices
-transform_fp = osp.join(args.data_fp, 'transform.pkl')
+transform_fp = osp.join(args.data_fp, 'transform', 'transform.pkl')
 if not osp.exists(transform_fp):
     print('Generating transform matrices...')
     mesh = Mesh(filename=template_fp)
@@ -204,7 +204,7 @@ def objective(trial):
     print("")
 
     if sap_score > 0.35:
-        model_path = f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
         torch.save(args.in_channels, f"{model_path}in_channels.pt")
@@ -220,16 +220,16 @@ def objective(trial):
         torch.save(latent_codes, f"{model_path}latent_codes.pt")
         torch.save(ages, f"{model_path}ages.pt")
 
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
     return euclidean_distance, sap_score
 
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize'])
