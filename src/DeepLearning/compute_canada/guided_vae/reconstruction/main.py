@@ -214,9 +214,12 @@ def objective(trial):
     print(f"SAP Score Label 2:   {sap_score_cognitive}")
     print("")
 
-    if sap_score > 0.0035:
+    if sap_score > 0.25:
         model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
+
         os.makedirs(model_path)
+        torch.save(sap_score, f"{model_path}sap_score.pt") 
+        torch.save(sap_score_cognitive, f"{model_path}sap_score_cognitive.pt")
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
         torch.save(args.in_channels, f"{model_path}in_channels.pt")
         torch.save(args.out_channels, f"{model_path}out_channels.pt")
@@ -231,6 +234,45 @@ def objective(trial):
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
+    if sap_score_cognitive > 0.25:
+        model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_score/{trial.number}/"
+        os.makedirs(model_path)
+        torch.save(sap_score, f"{model_path}sap_score.pt") 
+        torch.save(sap_score_cognitive, f"{model_path}sap_score_cognitive.pt")
+        torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
+        torch.save(args.in_channels, f"{model_path}in_channels.pt")
+        torch.save(args.out_channels, f"{model_path}out_channels.pt")
+        torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
+        torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
+        torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
+        torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
+        torch.save(meshdata.std, f"{model_path}std.pt")        
+        torch.save(meshdata.mean, f"{model_path}mean.pt")        
+        torch.save(meshdata.template_face, f"{model_path}faces.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+
+    if sap_score > 0.15 and sap_score_cognitive > 0.15:
+        model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_two/{trial.number}/"
+        os.makedirs(model_path)
+        torch.save(sap_score, f"{model_path}sap_score.pt") 
+        torch.save(sap_score_cognitive, f"{model_path}sap_score_cognitive.pt")
+        torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
+        torch.save(args.in_channels, f"{model_path}in_channels.pt")
+        torch.save(args.out_channels, f"{model_path}out_channels.pt")
+        torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
+        torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
+        torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
+        torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
+        torch.save(meshdata.std, f"{model_path}std.pt")        
+        torch.save(meshdata.mean, f"{model_path}mean.pt")        
+        torch.save(meshdata.template_face, f"{model_path}faces.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+        shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+
+
     return euclidean_distance, sap_score, sap_score_cognitive
 
 class LogAfterEachTrial:
@@ -240,4 +282,4 @@ class LogAfterEachTrial:
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-study.optimize(objective, n_trials=300, callbacks=[log_trials])
+study.optimize(objective, n_trials=400, callbacks=[log_trials])
