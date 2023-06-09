@@ -19,6 +19,7 @@ preprocessing/groomed_data/
 
 utils/__pycache__/
 
+src/DeepLearning/compute_canada/mesh/
 src/DeepLearning/compute_canada/guided_vae/data/
 src/ShapeWorks/d/
 src/ShapeWorks/data/
