@@ -200,9 +200,13 @@ def objective(trial):
     #print(angles.cpu().numpy().shape)
     #print(latent_codes.cpu().numpy().shape)
     #print(thick.cpu().numpy().shape)
-    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
-    angles[torch.isnan(angles) | torch.isinf(angles)] = 0.5
-    thick[torch.isnan(thick) | torch.isinf(thick)] = 0.5
+    #print(angles.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
+    #print(thick.cpu().numpy())
+
+    #print(angles.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
+    #print(thick.cpu().numpy())
 
 
     # Pearson Correlation Coefficient
@@ -219,7 +223,7 @@ def objective(trial):
     print(f"SAP Score Label 2:   {sap_score_thick}")
     print("")
 
-    if sap_score > 0.25:
+    if sap_score > 0.45:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
@@ -239,7 +243,7 @@ def objective(trial):
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
-    if sap_score_thick > 0.25:
+    if sap_score_thick > 0.45:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models_thick/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
@@ -259,7 +263,7 @@ def objective(trial):
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
 
-    if sap_score > 0.15 and sap_score_thick > 0.15:
+    if sap_score > 0.35 and sap_score_thick > 0.35:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models_two/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
