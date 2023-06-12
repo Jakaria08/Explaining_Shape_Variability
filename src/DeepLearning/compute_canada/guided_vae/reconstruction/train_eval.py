@@ -66,8 +66,9 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
         if guided:
             loss_cls = F.mse_loss(re, label[:, :, 0], reduction='mean')
             loss += loss_cls * w_cls
-            loss_cls_2 = F.mse_loss(re_2, label[:, :, 1], reduction='mean')
-            loss += loss_cls_2 * w_cls
+            #print(re[0:5])
+            #print(label[:, :, 0][0:5])
+            #print(loss_cls.item())
         loss.backward()        
         optimizer.step()
         total_loss += loss.item()
@@ -97,6 +98,20 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             loss.backward()
             optimizer.step()
 
+            #excitation for z[1]
+            out, mu, log_var, re, re_2 = model(x) # re2 for excitation
+            loss = loss_function(x, out, mu, log_var, beta)  
+            optimizer.zero_grad()
+            loss_cls_2 = F.mse_loss(re_2, label[:, :, 1], reduction='mean')
+            loss += loss_cls_2 * w_cls
+            #print(re_2[0:5])
+            #print(label[:, :, 1][0:5])
+            #print(loss_cls_2.item())
+            loss.backward()        
+            optimizer.step()
+            total_loss += loss.item()
+        
+        
             # Inhibition Step 1 for label 2
             optimizer_c_2.zero_grad()
             z = model.reparameterize(mu, log_var).detach()
