@@ -34,8 +34,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, guided):
     model.train()
@@ -60,6 +60,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
             loss_cls = F.mse_loss(re, label, reduction='mean')
+            #print(loss_cls.item())
             loss += loss_cls * w_cls
         loss.backward()        
         optimizer.step()

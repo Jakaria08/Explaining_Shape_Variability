@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 args.work_dir = osp.dirname(osp.realpath(__file__))
 args.data_fp = osp.join(args.work_dir, '..', 'data', args.dataset)
-args.out_dir = osp.join(args.work_dir, '..', 'data', 'out_torus', args.exp_name)
+args.out_dir = osp.join(args.work_dir, '..', 'data', 'out', args.exp_name)
 args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 #print(args)
 
@@ -87,7 +87,7 @@ def set_seed(seed):
 set_seed(args.seed)
 
 # load dataset
-template_fp = osp.join(args.data_fp, 'template_torus', 'template.ply')
+template_fp = osp.join(args.data_fp, 'template', 'template.ply')
 meshdata = MeshData(args.data_fp,
                     template_fp,
                     split=args.split,
@@ -97,11 +97,11 @@ val_loader = DataLoader(meshdata.val_dataset, batch_size=args.batch_size)
 test_loader = DataLoader(meshdata.test_dataset, batch_size=args.batch_size)
 
 # generate/load transform matrices
-transform_fp = osp.join(args.data_fp, 'transform_torus', 'transform.pkl')
+transform_fp = osp.join(args.data_fp, 'transform', 'transform.pkl')
 if not osp.exists(transform_fp):
     print('Generating transform matrices...')
     mesh = Mesh(filename=template_fp)
-    ds_factors = [3, 3, 2, 2]
+    ds_factors = [3, 3, 2, 2] # [4, 4, 4, 4] ?
     _, A, D, U, F, V = mesh_sampling.generate_transform_matrices(
         mesh, ds_factors)
     tmp = {
@@ -203,8 +203,8 @@ def objective(trial):
     print(f"SAP Score:   {sap_score}")
     print("")
 
-    if sap_score > 0.35:
-        model_path = f"/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
+    if sap_score > 0.55:
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
         torch.save(args.in_channels, f"{model_path}in_channels.pt")
@@ -220,16 +220,16 @@ def objective(trial):
         torch.save(latent_codes, f"{model_path}latent_codes.pt")
         torch.save(angles, f"{model_path}angles.pt")
 
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
     return euclidean_distance, sap_score
 
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/scratch/jakariaTest/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize'])
