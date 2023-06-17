@@ -45,7 +45,7 @@ parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
 
 # others
-parser.add_argument('--guided', type=bool, default=False)
+parser.add_argument('--guided', type=bool, default=True)
 parser.add_argument('--seed', type=int, default=1)
 
 args = parser.parse_args()
