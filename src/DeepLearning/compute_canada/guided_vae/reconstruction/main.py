@@ -212,7 +212,7 @@ def objective(trial):
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
-    if sap_score > 0.85 and pcc > 0.95:
+    if sap_score > 0.80:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
