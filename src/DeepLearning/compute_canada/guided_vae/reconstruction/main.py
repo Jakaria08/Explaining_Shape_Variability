@@ -45,7 +45,7 @@ parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
 
 # others
-parser.add_argument('--guided', type=bool, default=True)
+parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
 
 args = parser.parse_args()
@@ -193,6 +193,7 @@ def objective(trial):
 
     # Pearson Correlation Coefficient
     pcc = stats.pearsonr(angles.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
+    print(latent_codes[:,0].cpu().numpy())
 
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
