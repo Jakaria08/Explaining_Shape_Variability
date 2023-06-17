@@ -196,16 +196,16 @@ def objective(trial):
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
     thick = torch.concat(thick).view(-1,1)
-
+    
     #print(angles.cpu().numpy().shape)
     #print(latent_codes.cpu().numpy().shape)
     #print(thick.cpu().numpy().shape)
     #print(angles.cpu().numpy())
-    #print(latent_codes.cpu().numpy())
+    print(latent_codes.cpu().numpy())
     #print(thick.cpu().numpy())
-
+    latent_codes[torch.isnan(latent_codes)] = 0
     #print(angles.cpu().numpy())
-    #print(latent_codes.cpu().numpy())
+    print(latent_codes.cpu().numpy())
     #print(thick.cpu().numpy())
 
 
@@ -223,7 +223,15 @@ def objective(trial):
     print(f"SAP Score Label 2:   {sap_score_thick}")
     print("")
 
-    if sap_score > 0.45:
+    message = 'Correlation | SAP | Correlation_2 | SAP_2 | Model | :  | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, pcc_thick, sap_score_thick, trial.number)
+
+
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+    with open(out_error_fp, 'a') as log_file:
+        log_file.write('{:s}\n'.format(message))
+
+    if sap_score > 0.85:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
@@ -242,47 +250,14 @@ def objective(trial):
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
-    
-    if sap_score_thick > 0.45:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models_thick/{trial.number}/"
-        os.makedirs(model_path)
-        torch.save(sap_score, f"{model_path}sap_score.pt") 
-        torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
 
-        torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
-        torch.save(args.in_channels, f"{model_path}in_channels.pt")
-        torch.save(args.out_channels, f"{model_path}out_channels.pt")
-        torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
-        torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
-        torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
-        torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
-        torch.save(meshdata.std, f"{model_path}std.pt")        
-        torch.save(meshdata.mean, f"{model_path}mean.pt")        
-        torch.save(meshdata.template_face, f"{model_path}faces.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+        message_target = 'Correlation | SAP | Correlation_2 | SAP_2 | Model | :  | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, pcc_thick, sap_score_thick, trial.number)
 
-    if sap_score > 0.35 and sap_score_thick > 0.35:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models_two/{trial.number}/"
-        os.makedirs(model_path)
-        torch.save(sap_score, f"{model_path}sap_score.pt") 
-        torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
 
-        torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
-        torch.save(args.in_channels, f"{model_path}in_channels.pt")
-        torch.save(args.out_channels, f"{model_path}out_channels.pt")
-        torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
-        torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
-        torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
-        torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
-        torch.save(meshdata.std, f"{model_path}std.pt")        
-        torch.save(meshdata.mean, f"{model_path}mean.pt")        
-        torch.save(meshdata.template_face, f"{model_path}faces.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
-
+        out_error_fp_target = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test_target.txt'
+        with open(out_error_fp_target, 'a') as log_file_target:
+            log_file_target.write('{:s}\n'.format(message_target))
 
     return euclidean_distance, sap_score, sap_score_thick
 
