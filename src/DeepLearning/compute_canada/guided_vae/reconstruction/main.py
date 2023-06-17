@@ -204,7 +204,15 @@ def objective(trial):
     print(f"SAP Score:   {sap_score}")
     print("")
 
-    if sap_score > 0.55:
+    message = 'Correlation | SAP | Model | :  | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, trial.number)
+
+
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+    with open(out_error_fp, 'a') as log_file:
+        log_file.write('{:s}\n'.format(message))
+
+    if sap_score > 0.85 and pcc > 0.95:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
@@ -224,6 +232,13 @@ def objective(trial):
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+
+        message_target = 'Correlation | SAP | Model | :  | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, trial.number)
+
+        out_error_fp_target = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test_target.txt'
+        with open(out_error_fp_target, 'a') as log_file_target:
+            log_file_target.write('{:s}\n'.format(message_target))
     
     return euclidean_distance, sap_score
 
