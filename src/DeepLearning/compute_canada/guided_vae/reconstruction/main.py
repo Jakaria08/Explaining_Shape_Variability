@@ -201,11 +201,11 @@ def objective(trial):
     #print(latent_codes.cpu().numpy().shape)
     #print(thick.cpu().numpy().shape)
     #print(angles.cpu().numpy())
-    print(latent_codes.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
     #print(thick.cpu().numpy())
-    latent_codes[torch.isnan(latent_codes)] = 0
+    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
     #print(angles.cpu().numpy())
-    print(latent_codes.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
     #print(thick.cpu().numpy())
 
 
