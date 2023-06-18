@@ -197,8 +197,9 @@ def objective(trial):
     ages = torch.concat(ages).view(-1,1)
     score = torch.concat(score).view(-1,1)
 
-    print(len(ages.view(-1).cpu().numpy()))
-    print(len(latent_codes[:,0].cpu().numpy()))
+    #print(len(ages.view(-1).cpu().numpy()))
+    #print(len(latent_codes[:,0].cpu().numpy()))
+    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
 
     # Pearson Correlation Coefficient
     pcc = stats.pearsonr(ages.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
@@ -214,7 +215,15 @@ def objective(trial):
     print(f"SAP Score Label 2:   {sap_score_cognitive}")
     print("")
 
-    if sap_score > 0.25:
+    message = 'Correlation | SAP | Correlation_2 | SAP_2 | Model | :  | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, pcc_score, sap_score_cognitive, trial.number)
+
+
+    out_error_fp = '/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+    with open(out_error_fp, 'a') as log_file:
+        log_file.write('{:s}\n'.format(message))
+
+    if sap_score > 0.35:
         model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
 
         os.makedirs(model_path)
@@ -233,8 +242,16 @@ def objective(trial):
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+
+        message_target = 'Correlation | SAP | Correlation_2 | SAP_2 | Model | :  | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, pcc_score, sap_score_cognitive, trial.number)
+
+
+        out_error_fp_target = '/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test_target.txt'
+        with open(out_error_fp_target, 'a') as log_file_target:
+            log_file_target.write('{:s}\n'.format(message_target))
     
-    if sap_score_cognitive > 0.25:
+    if sap_score_cognitive > 0.35:
         model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_score/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
@@ -253,7 +270,7 @@ def objective(trial):
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
 
-    if sap_score > 0.15 and sap_score_cognitive > 0.15:
+    if sap_score > 0.25 and sap_score_cognitive > 0.25:
         model_path = f"/home/jakaria/scratch/jakariaTest/Two_Variable/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_two/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
