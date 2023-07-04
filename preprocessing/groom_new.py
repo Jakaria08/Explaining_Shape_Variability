@@ -45,11 +45,7 @@ def start_grooming(args):
 
     for segmentation in tqdm(matching_files):
         # Get the folder name
-        folder_name = os.path.basename(os.path.dirname(segmentation))
-
-        # Create the new file name by combining the folder name and the ".ply" extension
-        filename = f"{folder_name}.nii"
-        #print(new_file_name)
+        filename = os.path.basename(os.path.dirname(segmentation))
         with suppress_stdout():
             # Extract filename
             #filename = segmentation.split("\\")[-1].split(".")[0].replace("_standard", "")
