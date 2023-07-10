@@ -171,13 +171,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Registration Pipeline')
     parser.add_argument('--use_case', type=str, default='hippocampus', choices=['hippocampus', 'box', 'torus'])
-    parser.add_argument('--data_dir', type=str, default='hippo_data/')
-    parser.add_argument('--template_file', type=str, default='hippo_template/ab300_283_standard.vtk')
-    parser.add_argument('--output_dir', type=str, default='hippo_output/')
+    parser.add_argument('--data_dir', type=str, default='/home/jakaria/jakariaTest/hippoData_noReg_disease/')
+    parser.add_argument('--template_file', type=str, default='/home/jakaria/jakariaTest/hippoData_noReg_disease/tle_012.vtk')
+    parser.add_argument('--output_dir', type=str, default='/home/jakaria/jakariaTest/hippoData_regstrd_disease/')
     args = parser.parse_args()
 
-    if not os.path.exists(args.out_dir):
-        os.makedirs(args.out_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     if args.use_case == 'hippocampus':
         start_hippo_registration(Path(args.data_dir),
