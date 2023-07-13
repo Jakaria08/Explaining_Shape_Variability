@@ -41,7 +41,9 @@ parser.add_argument('--weight_decay', type=float, default=0)
 # training hyperparameters
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--epochs', type=int, default=200)
-parser.add_argument('--beta', type=float, default=0)
+parser.add_argument('--beta', type=float, default=1)
+parser.add_argument('--alpha', type=float, default=1)
+parser.add_argument('--gamma', type=float, default=1)
 parser.add_argument('--wcls', type=int, default=1)
 
 # others
@@ -177,7 +179,7 @@ def objective(trial):
     args.guided = True
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided)
+        writer, device, args.alpha, args.beta, args.gamma, args.wcls, args.guided)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -188,7 +190,7 @@ def objective(trial):
         for i, data in enumerate(test_loader):
             x = data.x.to(device)
             y = data.y.to(device)
-            recon, mu, log_var, re, re_2 = model(x)
+            recon, mu, log_var, z, re, re_2 = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
             angles.append(y[:, :, 0])

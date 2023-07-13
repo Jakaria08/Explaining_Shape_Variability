@@ -167,7 +167,7 @@ class AE(nn.Module):
         mu, log_var = self.encoder(x)
         z = self.reparameterize(mu, log_var)
         out = self.decoder(z)
-        return out, mu, log_var, self.reg(z), self.reg_2(z)
+        return out, mu, log_var, z, self.reg(z), self.reg_2(z)
 
 # Inhibition
 class Regressor(nn.Module):
