@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from reconstruction import Regressor
 import math
 from tqdm import trange, tqdm
+n_train_steps = 0
 
 def matrix_log_density_gaussian(x, mu, logvar):
     """Calculates log density of a Gaussian for all combination of bacth pairs of
@@ -108,7 +109,8 @@ def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, i
 
     return log_pz, log_qz, log_prod_qzi, log_q_zCx
 
-def loss_function(original, reconstruction, mu, log_var, z, alpha, beta, gamma, n_data, batch_size):
+def loss_function(original, reconstruction, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train):
+    global n_train_steps
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
     #kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
     latent_sample = z
@@ -124,8 +126,8 @@ def loss_function(original, reconstruction, mu, log_var, z, alpha, beta, gamma, 
     tc_loss = (log_qz - log_prod_qzi).mean()
     # dw_kl_loss is KL[q(z)||p(z)] instead of usual KL[q(z|x)||p(z))]
     dw_kl_loss = (log_prod_qzi - log_pz).mean()
-
-    anneal_reg = (linear_annealing(0, 1, self.n_train_steps, self.steps_anneal)
+    
+    anneal_reg = (linear_annealing(0, 1, n_train_steps, 1)
                       if is_train else 1)
 
     loss = reconstruction_loss + (alpha * mi_loss + beta * tc_loss +
@@ -163,10 +165,12 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, alpha, beta, gamma, w_cls, guided):
+    global n_train_steps
+    n_train_steps += 1
     model.train()
     model_c.train()
     model_c_2.train()
-
+    
     total_loss = 0
     recon_loss = 0
     reg_loss = 0
@@ -186,7 +190,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
         optimizer.zero_grad()
         out, mu, log_var, z, re, re_2 = model(x) # re2 for excitation
         n_data = len(loader.dataset)
-        loss = loss_function(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size)       
+        loss = loss_function(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train=True)       
         if guided:
             loss_cls = F.mse_loss(re, label[:, :, 0], reduction='mean')
             loss += loss_cls * w_cls
@@ -224,7 +228,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 
             #excitation for z[1]
             out, mu, log_var, z, re, re_2 = model(x) # re2 for excitation
-            loss = loss_function(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size)  
+            loss = loss_function(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train=True)  
             optimizer.zero_grad()
             loss_cls_2 = F.mse_loss(re_2, label[:, :, 1], reduction='mean')
             loss += loss_cls_2 * w_cls
@@ -278,7 +282,7 @@ def test(model, loader, device, alpha, beta, gamma):
             batch_size = len(data)
             n_data = len(loader.dataset)
             pred, mu, log_var, z, re, re_2 = model(x)
-            total_loss += loss_function(x, pred, mu, log_var, z, alpha, beta, gamma, n_data, batch_size)
+            total_loss += loss_function(x, pred, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train=False)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
             reg_loss += F.mse_loss(re, y[:, :, 0], reduction='mean')
             reg_loss_2 += F.mse_loss(re_2, y[:, :, 1], reduction='mean')
