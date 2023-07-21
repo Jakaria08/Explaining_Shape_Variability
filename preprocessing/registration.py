@@ -172,7 +172,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Registration Pipeline')
     parser.add_argument('--use_case', type=str, default='hippocampus', choices=['hippocampus', 'box', 'torus'])
     parser.add_argument('--data_dir', type=str, default='/home/jakaria/jakariaTest/hippoData_noReg_disease_whole_roi_extra_tle/')
-    parser.add_argument('--template_file', type=str, default='/home/jakaria/jakariaTest/hippoData_noReg_disease_whole_roi_extra_tle/tle_012.vtk')
+    parser.add_argument('--template_file', type=str, default='/home/jakaria/jakariaTest/hippoData_noReg_disease_whole_roi_extra_tle/TLE_012.vtk')
     parser.add_argument('--output_dir', type=str, default='/home/jakaria/jakariaTest/hippoData_regstrd_disease_whole_roi_extra_tle/')
     args = parser.parse_args()
 

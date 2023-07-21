@@ -1,0 +1,21 @@
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) libfabric/1.10.1     2) openmpi/4.0.3     3) ucx/1.8.0
+
+Logger has been set to: INFO
+Traceback (most recent call last):
+  File "registration.py", line 183, in <module>
+    start_hippo_registration(Path(args.data_dir),
+  File "registration.py", line 50, in start_hippo_registration
+    model = deformetrica.estimate_deterministic_atlas(
+  File "/home/jakaria/ENV_reg/lib/python3.8/site-packages/deformetrica/api/deformetrica.py", line 168, in estimate_deterministic_atlas
+    template_specifications, model_options, estimator_options = self.further_initialization(
+  File "/home/jakaria/ENV_reg/lib/python3.8/site-packages/deformetrica/api/deformetrica.py", line 618, in further_initialization
+    model_options['dimension'] = self.__infer_dimension(template_specifications)
+  File "/home/jakaria/ENV_reg/lib/python3.8/site-packages/deformetrica/api/deformetrica.py", line 889, in __infer_dimension
+    o = reader.create_object(object_filename, object_type, dimension=None)
+  File "/home/jakaria/ENV_reg/lib/python3.8/site-packages/deformetrica/in_out/deformable_object_reader.py", line 40, in create_object
+    points, dimension, connectivity = DeformableObjectReader.read_file(
+  File "/home/jakaria/ENV_reg/lib/python3.8/site-packages/deformetrica/in_out/deformable_object_reader.py", line 121, in read_file
+    assert os.path.isfile(filename), 'File does not exist: %s' % filename
+AssertionError: File does not exist: /home/jakaria/jakariaTest/hippoData_noReg_disease_whole_roi_extra_tle/tle_012.vtk
