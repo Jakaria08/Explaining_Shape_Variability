@@ -2,7 +2,7 @@ import time
 import os
 import torch
 import torch.nn.functional as F
-from reconstruction import Regressor
+from reconstruction import Regressor, Classifier
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -12,6 +12,9 @@ def loss_function(original, reconstruction, mu, log_var, beta):
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         device, beta, w_cls, guided):
+    
+    model_c_c = Classifier().to(device)
+    optimizer_c_c = torch.optim.Adam(model_c_c.parameters(), lr=1e-3, weight_decay=0)
     
     model_c = Regressor().to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=0)
@@ -23,7 +26,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided)
+        train_loss = train(model, optimizer, model_c_c, optimizer_c_c, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided)
         t_duration = time.time() - t
         test_loss = test(model, test_loader, device, beta)
         scheduler.step()
@@ -40,8 +43,9 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/model_state_dict.pt")
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided):
+def train(model, optimizer, model_c_c, optimizer_c_c, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided):
     model.train()
+    model_c_c.train()
     model_c.train()
     model_c_2.train()
 
@@ -64,7 +68,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
-            loss_cls = F.mse_loss(re, label[:, :, 0], reduction='mean')
+            loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='sum')
             loss += loss_cls * w_cls
             #print(re[0:5])
             #print(label[:, :, 0][0:5])
@@ -78,21 +82,21 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer_c.zero_grad()
             z = model.reparameterize(mu, log_var).detach()
             z = z[:, 1:]
-            cls1 = model_c(z)
-            loss = F.mse_loss(cls1, label[:, :, 0], reduction='mean')
+            cls1 = model_c_c(z)
+            loss = F.binary_cross_entropy(cls1, label[:, :, 0], reduction='sum')
             cls1_error += loss.item()
             loss *= w_cls
             loss.backward()
-            optimizer_c.step()
+            optimizer_c_c.step()
 
             # Inhibition Step 2 for label 1
             optimizer.zero_grad()
             mu, log_var = model.encoder(x)
             z = model.reparameterize(mu, log_var)
             z = z[:, 1:]
-            cls2 = model_c(z)
+            cls2 = model_c_c(z)
             label1 = torch.empty_like(label[:, :, 0]).fill_(0.5)
-            loss = F.mse_loss(cls2, label1, reduction='mean')
+            loss = F.binary_cross_entropy(cls2, label1, reduction='sum')
             cls2_error += loss.item()
             loss *= w_cls
             loss.backward()
