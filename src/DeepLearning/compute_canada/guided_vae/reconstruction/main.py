@@ -185,6 +185,7 @@ def objective(trial):
     angles = []
     thick = []
     latent_codes = []
+    re_pre = []
     with torch.no_grad():
         for i, data in enumerate(test_loader):
             x = data.x.to(device)
@@ -194,16 +195,18 @@ def objective(trial):
             latent_codes.append(z)
             angles.append(y[:, :, 0])
             thick.append(y[:, :, 1]) 
+            re_pre.append(re)
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
     thick = torch.concat(thick).view(-1,1)
+    re_pre = torch.concat(re_pre).view(-1,1)
     
     #print(angles.cpu().numpy().shape)
-    #print(latent_codes.cpu().numpy().shape)
+    #print(re_pre.cpu().numpy().shape)
     #print(thick.cpu().numpy().shape)
     #print(angles.cpu().numpy())
     #print(latent_codes.cpu().numpy())
-    #print(thick.cpu().numpy())
+    #print(re_pre.cpu().numpy())
     latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
     #print(angles.cpu().numpy())
     #print(latent_codes.cpu().numpy())
@@ -211,7 +214,8 @@ def objective(trial):
 
 
     # Pearson Correlation Coefficient
-    pcc = accuracy_score(angles.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
+    re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
+    pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
     pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)

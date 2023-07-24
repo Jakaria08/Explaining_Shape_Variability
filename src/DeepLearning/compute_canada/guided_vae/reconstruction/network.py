@@ -92,7 +92,7 @@ class AE(nn.Module):
         self.reset_parameters()
 
 	    # Excitation
-        self.reg_sq = nn.Sequential(
+        self.cls_sq = nn.Sequential(
             nn.Linear(1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -103,7 +103,7 @@ class AE(nn.Module):
             nn.Sigmoid())
 
         # Excitation 2
-        self.reg_sq_2 = nn.Sequential(
+        self.reg_sq = nn.Sequential(
             nn.Linear(1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -156,26 +156,26 @@ class AE(nn.Module):
 
         return sample
 
-    def reg(self, z): # first excitation
+    def cls(self, z): # first excitation
         z = torch.split(z, 1, 1)[0]
-        return self.reg_sq(z)
+        return self.cls_sq(z)
 
-    def reg_2(self, z): # second excitation
+    def reg(self, z): # second excitation
         z = torch.split(z, 1, 1)[1]
-        return self.reg_sq_2(z)    
+        return self.reg_sq(z)    
 
     def forward(self, x, *indices):
         mu, log_var = self.encoder(x)
         z = self.reparameterize(mu, log_var)
         out = self.decoder(z)
-        return out, mu, log_var, self.reg(z), self.reg_2(z)
+        return out, mu, log_var, self.cls(z), self.reg(z)
 
 # Inhibition
 class Classifier(nn.Module):
     def __init__(self, n_vae_dis=16):
         super(Classifier, self).__init__()
 
-        self.cls_sq = nn.Sequential(
+        self.cls_sq_1 = nn.Sequential(
             nn.Linear(n_vae_dis - 1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -188,13 +188,13 @@ class Classifier(nn.Module):
         )
 
     def forward(self, x):
-        return self.cls_sq(x)
+        return self.cls_sq_1(x)
 
 class Regressor(nn.Module):
     def __init__(self, n_vae_dis=16):
         super(Regressor, self).__init__()
 
-        self.reg_sq = nn.Sequential(
+        self.reg_sq_1 = nn.Sequential(
             nn.Linear(n_vae_dis - 1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -205,4 +205,4 @@ class Regressor(nn.Module):
         )
 
     def forward(self, x):
-        return self.reg_sq(x)
+        return self.reg_sq_1(x)
