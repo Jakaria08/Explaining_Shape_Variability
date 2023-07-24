@@ -158,7 +158,7 @@ def test(model, loader, device, beta):
             pred, mu, log_var, re, re_2 = model(x)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
-            reg_loss += F.mse_loss(re, y[:, :, 0], reduction='mean')
+            reg_loss += F.binary_cross_entropy(re, y[:, :, 0], reduction='sum')
             reg_loss_2 += F.mse_loss(re_2, y[:, :, 1], reduction='mean')
 
     return total_loss / len(loader)
