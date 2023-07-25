@@ -15,6 +15,7 @@ import optuna
 from contextlib import redirect_stdout
 import shutil
 import random
+from sklearn.metrics import accuracy_score
 
 parser = argparse.ArgumentParser(description='mesh autoencoder')
 parser.add_argument('--exp_name', type=str, default='interpolation_exp')
@@ -180,6 +181,7 @@ def objective(trial):
 
     angles = []
     latent_codes = []
+    re_pre = []
     with torch.no_grad():
         for i, data in enumerate(test_loader):
             x = data.x.to(device)
@@ -188,15 +190,29 @@ def objective(trial):
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
             angles.append(y)
+            re_pre.append(re)
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
+    re_pre = torch.concat(re_pre).view(-1,1)
+
+    #print(angles.cpu().numpy().shape)
+    #print(re_pre.cpu().numpy().shape)
+    #print(thick.cpu().numpy().shape)
+    #print(angles.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
+    #print(re_pre.cpu().numpy())
+    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
+    #print(angles.cpu().numpy())
+    #print(latent_codes.cpu().numpy())
+    #print(thick.cpu().numpy())
 
     # Pearson Correlation Coefficient
-    pcc = stats.pearsonr(angles.view(-1).cpu().numpy(), latent_codes[:,0].cpu().numpy())[0]
-    print(latent_codes[:,0].cpu().numpy())
+    re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
+    pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
+    #print(latent_codes[:,0].cpu().numpy())
 
     # SAP Score
-    sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
+    sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
     
 
     print("")
@@ -204,7 +220,15 @@ def objective(trial):
     print(f"SAP Score:   {sap_score}")
     print("")
 
-    if sap_score > 0.55:
+    message = 'Correlation | SAP | Model | :  | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+                                                    sap_score, trial.number)
+
+
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+    with open(out_error_fp, 'a') as log_file:
+        log_file.write('{:s}\n'.format(message))
+
+    if sap_score > 0.1:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
