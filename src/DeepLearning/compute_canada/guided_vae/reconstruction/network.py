@@ -160,7 +160,7 @@ class AE(nn.Module):
 # Inhibition classifier
 class Classifier(nn.Module):
     def __init__(self, n_vae_dis=16):
-        super(Regressor, self).__init__()
+        super(Classifier, self).__init__()
 
         self.cls_sq = nn.Sequential(
             nn.Linear(n_vae_dis - 1, 8),
