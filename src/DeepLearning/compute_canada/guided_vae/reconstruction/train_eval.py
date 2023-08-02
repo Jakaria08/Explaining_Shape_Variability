@@ -11,9 +11,9 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided):
+        device, beta, w_cls, guided, latent_channels):
     
-    model_c = Classifier().to(device)
+    model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=0)
 
     train_losses, test_losses = [], []

@@ -51,7 +51,7 @@ class AE(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.latent_channels = latent_channels
-        self.latent_channels = latent_channels
+        #self.latent_channels = latent_channels
         self.spiral_indices = spiral_indices
         self.down_transform = down_transform
         self.up_transform = up_transform
@@ -159,7 +159,7 @@ class AE(nn.Module):
 
 # Inhibition classifier
 class Classifier(nn.Module):
-    def __init__(self, n_vae_dis=16):
+    def __init__(self, n_vae_dis):
         super(Classifier, self).__init__()
 
         self.cls_sq = nn.Sequential(
@@ -179,7 +179,7 @@ class Classifier(nn.Module):
 
 # Inhibition regressor
 class Regressor(nn.Module):
-    def __init__(self, n_vae_dis=16):
+    def __init__(self, n_vae_dis):
         super(Regressor, self).__init__()
 
         self.reg_sq = nn.Sequential(

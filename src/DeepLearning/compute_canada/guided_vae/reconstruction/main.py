@@ -16,6 +16,7 @@ from contextlib import redirect_stdout
 import shutil
 import random
 from sklearn.metrics import accuracy_score
+import pandas as pd
 
 parser = argparse.ArgumentParser(description='mesh autoencoder')
 parser.add_argument('--exp_name', type=str, default='interpolation_exp')
@@ -145,7 +146,7 @@ def objective(trial):
     args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
     args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
     args.decay_step = trial.suggest_int("decay_step", 1, 50)
-    # args.latent_channels = trial.suggest_int("latent_channels", 4, 16, step=4)
+    args.latent_channels = trial.suggest_int("latent_channels", 4, 16, step=4)
 
     sequence_length = trial.suggest_int("sequence_length", 5, 50)
     args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
@@ -175,7 +176,7 @@ def objective(trial):
     args.guided = True
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided)
+        writer, device, args.beta, args.wcls, args.guided, args.latent_channels)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -195,7 +196,8 @@ def objective(trial):
     angles = torch.concat(angles).view(-1,1)
     re_pre = torch.concat(re_pre).view(-1,1)
 
-    #print(angles.cpu().numpy().shape)
+    #print(angles.cpu().numpy().shape) # (50, 1)
+    #print(latent_codes.cpu().numpy().shape) (50, 16)
     #print(re_pre.cpu().numpy().shape)
     #print(thick.cpu().numpy().shape)
     #print(angles.cpu().numpy())
@@ -220,15 +222,23 @@ def objective(trial):
     print(f"SAP Score:   {sap_score}")
     print("")
 
-    message = 'Correlation | SAP | Model | :  | {:.3f} | {:.3f} | {:d} |'.format(pcc,
+    message = 'Latent Channels | Correlation | SAP | Model | :  | {:d} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc,
                                                     sap_score, trial.number)
 
+    df = pd.DataFrame(latent_codes.cpu().numpy())
+    df1 = pd.DataFrame(angles.cpu().numpy())
+    # File path for saving the data
+    excel_file_path_latent = "latent_codes.csv"
+    excel_file_path_angles = "angles.csv"
+    # Save the DataFrame to an Excel file
+    df.to_csv(excel_file_path_latent, index=False)
+    df1.to_csv(excel_file_path_angles, index=False)
 
     out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
-    if sap_score > 0.1:
+    if sap_score >= 0:
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")

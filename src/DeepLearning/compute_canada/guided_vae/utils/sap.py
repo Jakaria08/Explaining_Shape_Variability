@@ -123,6 +123,8 @@ def _sap_classification(factors, codes, nb_factors, nb_codes):
     s_matrix = np.zeros((nb_factors, nb_codes))
     for f in range(nb_factors):
         for c in range(nb_codes):
+            #print(codes[:, c].reshape(-1, 1))
+            #print(factors[:, f].reshape(-1, 1))
             # find the optimal number of splits
             best_score, best_sp = 0, 0
             for sp in range(1, 10):
@@ -144,6 +146,7 @@ def _sap_classification(factors, codes, nb_factors, nb_codes):
 
             # compute accuracy
             s_matrix[f, c] = accuracy_score(y_pred, factors[:, f])
+            #print(s_matrix) # (1, 16)
 
     # compute the mean gap for all factors
     sum_gap = 0
