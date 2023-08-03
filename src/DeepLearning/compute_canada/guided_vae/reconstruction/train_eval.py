@@ -11,10 +11,10 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, latent_channels):
+        device, beta, w_cls, guided, latent_channels, weight_decay_c):
     
     model_c = Classifier(latent_channels).to(device)
-    optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=0)
+    optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
 
     train_losses, test_losses = [], []
 
@@ -59,7 +59,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
         out, mu, log_var, re = model(x)
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
-            loss_cls = F.binary_cross_entropy(re, label, reduction='sum')
+            loss_cls = F.binary_cross_entropy(re, label, reduction='mean')
             #print(loss_cls.item())
             loss += loss_cls * w_cls
         loss.backward()        
@@ -68,11 +68,12 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
 
         if guided:
             # Inhibition Step 1
+            
             optimizer_c.zero_grad()
             z = model.reparameterize(mu, log_var).detach()
             z = z[:, 1:]
             cls1 = model_c(z)
-            loss = F.binary_cross_entropy(cls1, label, reduction='sum')
+            loss = F.binary_cross_entropy(cls1, label, reduction='mean')
             cls1_error += loss.item()
             loss *= w_cls
             loss.backward()
@@ -85,7 +86,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             z = z[:, 1:]
             cls2 = model_c(z)
             label1 = torch.empty_like(label).fill_(0.5)
-            loss = F.binary_cross_entropy(cls2, label1, reduction='sum')
+            loss = F.binary_cross_entropy(cls2, label1, reduction='mean')
             cls2_error += loss.item()
             loss *= w_cls
             loss.backward()
@@ -108,7 +109,7 @@ def test(model, loader, device, beta):
             pred, mu, log_var, re = model(x)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
-            reg_loss += F.binary_cross_entropy(re, y, reduction='sum')
+            reg_loss += F.binary_cross_entropy(re, y, reduction='mean')
 
     return total_loss / len(loader)
 

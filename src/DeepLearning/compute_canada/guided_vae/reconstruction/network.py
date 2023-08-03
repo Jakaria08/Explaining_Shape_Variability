@@ -162,7 +162,7 @@ class Classifier(nn.Module):
     def __init__(self, n_vae_dis):
         super(Classifier, self).__init__()
 
-        self.cls_sq = nn.Sequential(
+        self.cls_sq_n = nn.Sequential(
             nn.Linear(n_vae_dis - 1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -174,7 +174,7 @@ class Classifier(nn.Module):
         )
 
     def forward(self, x):
-        return self.cls_sq(x)
+        return self.cls_sq_n(x)
 
 
 # Inhibition regressor
