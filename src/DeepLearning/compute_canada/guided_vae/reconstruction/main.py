@@ -143,7 +143,7 @@ def objective(trial):
     args.epochs = trial.suggest_int("epochs", 100, 400, step=100)
     args.batch_size = trial.suggest_int("batch_size", 4, 32, 4)
     args.wcls = trial.suggest_int("w_cls", 1, 100)
-    args.beta = trial.suggest_float("beta", 0.001, 0.3, log=True)
+    args.beta = trial.suggest_float("beta", 0.0001, 0.3, log=True)
     args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
     args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
     args.decay_step = trial.suggest_int("decay_step", 1, 50)
@@ -191,7 +191,7 @@ def objective(trial):
             recon, mu, log_var, re = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            angles.append(y)
+            angles.append(y[:, :, 0])
             re_pre.append(re)
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
@@ -216,7 +216,6 @@ def objective(trial):
 
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
-    
 
     print("")
     print(f"Correlation: {pcc}")
