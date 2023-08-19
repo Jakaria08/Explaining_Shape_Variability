@@ -34,8 +34,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, guided):
     model.train()
@@ -59,7 +59,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
         out, mu, log_var, re = model(x)
         loss = loss_function(x, out, mu, log_var, beta)       
         if guided:
-            loss_cls = F.binary_cross_entropy(re, label, reduction='mean')
+            loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='mean')
             #print(loss_cls.item())
             loss += loss_cls * w_cls
         loss.backward()        
@@ -73,7 +73,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             z = model.reparameterize(mu, log_var).detach()
             z = z[:, 1:]
             cls1 = model_c(z)
-            loss = F.binary_cross_entropy(cls1, label, reduction='mean')
+            loss = F.binary_cross_entropy(cls1, label[:, :, 0], reduction='mean')
             cls1_error += loss.item()
             loss *= w_cls
             loss.backward()
@@ -109,7 +109,7 @@ def test(model, loader, device, beta):
             pred, mu, log_var, re = model(x)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
-            reg_loss += F.binary_cross_entropy(re, y, reduction='mean')
+            reg_loss += F.binary_cross_entropy(re, y[:, :, 0], reduction='mean')
 
     return total_loss / len(loader)
 

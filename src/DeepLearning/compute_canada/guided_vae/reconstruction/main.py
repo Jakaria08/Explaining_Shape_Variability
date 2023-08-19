@@ -143,7 +143,7 @@ def objective(trial):
     args.epochs = trial.suggest_int("epochs", 100, 400, step=100)
     args.batch_size = trial.suggest_int("batch_size", 4, 32, 4)
     args.wcls = trial.suggest_int("w_cls", 1, 100)
-    args.beta = trial.suggest_float("beta", 0.001, 0.3, log=True)
+    args.beta = trial.suggest_float("beta", 0.0001, 0.3, log=True)
     args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
     args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
     args.decay_step = trial.suggest_int("decay_step", 1, 50)
@@ -191,7 +191,7 @@ def objective(trial):
             recon, mu, log_var, re = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            angles.append(y)
+            angles.append(y[:, :, 0])
             re_pre.append(re)
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
@@ -235,12 +235,12 @@ def objective(trial):
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+    out_error_fp = '/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
+        model_path = f"/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
         torch.save(args.in_channels, f"{model_path}in_channels.pt")
@@ -256,16 +256,16 @@ def objective(trial):
         torch.save(latent_codes, f"{model_path}latent_codes.pt")
         torch.save(angles, f"{model_path}angles.pt")
 
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+        shutil.copy("/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+        shutil.copy("/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+        shutil.copy("/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
     
     return euclidean_distance, sap_score
 
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/scratch/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize'])
