@@ -53,9 +53,9 @@ parser.add_argument('--seed', type=int, default=1)
 
 args = parser.parse_args()
 
-args.work_dir = osp.dirname(osp.realpath(__file__))
-args.data_fp = osp.join(args.work_dir, '..', 'data', args.dataset)
-args.out_dir = osp.join(args.work_dir, '..', 'data', 'out', args.exp_name)
+args.work_dir = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae"
+args.data_fp = osp.join(args.work_dir, 'data', args.dataset)
+args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
 args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 #print(args)
 
