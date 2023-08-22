@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
+from reconstruction.loss import SNNLCrossEntropy, CorrelationLoss
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -11,7 +12,7 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, latent_channels, weight_decay_c):
+        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp):
     
     model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
@@ -20,9 +21,9 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, train_loader, device, beta, w_cls, guided)
+        train_loss = train(model, optimizer, model_c, optimizer_c, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp)
         t_duration = time.time() - t
-        test_loss = test(model, test_loader, device, beta)
+        test_loss = test(model, test_loader, device, beta, temp)
         scheduler.step()
         info = {
             'current_epoch': epoch,
@@ -37,7 +38,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, guided):
+def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp):
+
     model.train()
     model_c.train()
 
@@ -49,7 +51,6 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
 
     for data in loader:
 
-        
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
@@ -62,6 +63,24 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='mean')
             #print(loss_cls.item())
             loss += loss_cls * w_cls
+        if guided_contrastive_loss:
+            SNN_Loss = SNNLCrossEntropy(temperature=temp)
+    
+            z = model.reparameterize(mu, log_var)
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            loss_snn = SNN_Loss.SNNL(z, label[:, :, 0], temp=temp)
+            loss += loss_snn * w_cls
+            #print(loss_snn.item())
+        if correlation_loss:
+            corr_loss = CorrelationLoss()
+            z = model.reparameterize(mu, log_var)
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            loss_corr = corr_loss(z, label[:, :, 0])
+            loss += loss_corr * w_cls
+
+
         loss.backward()        
         optimizer.step()
         total_loss += loss.item()
@@ -95,7 +114,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
     return total_loss / len(loader)
 
 
-def test(model, loader, device, beta):
+def test(model, loader, device, beta, temp):
     model.eval()
     model.training = False
 

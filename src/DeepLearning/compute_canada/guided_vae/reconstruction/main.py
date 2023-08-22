@@ -48,8 +48,11 @@ parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
 
 # others
-parser.add_argument('--guided', type=bool, default=True)
+parser.add_argument('--correlation_loss', type=bool, default=True)
+parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
+parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
+parser.add_argument('--temperature', type=int, default=100)
 
 args = parser.parse_args()
 
@@ -147,7 +150,8 @@ def objective(trial):
     args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
     args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
     args.decay_step = trial.suggest_int("decay_step", 1, 50)
-    args.latent_channels = trial.suggest_int("latent_channels", 4, 16, step=4)
+    args.latent_channels = trial.suggest_int("latent_channels", 12, 16, step=4)
+    args.temperature = trial.suggest_int("temperature", 1, 200, step=20)
 
     sequence_length = trial.suggest_int("sequence_length", 5, 50)
     args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
@@ -175,9 +179,11 @@ def objective(trial):
                                                 gamma=args.lr_decay)
 
     args.guided = True
+    args.guided_contrastive_loss = True
+    args.correlation_loss = True
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.latent_channels, args.weight_decay_c)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -222,8 +228,8 @@ def objective(trial):
     print(f"SAP Score:   {sap_score}")
     print("")
 
-    message = 'Latent Channels | Correlation | SAP | Model | :  | {:d} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc,
-                                                    sap_score, trial.number)
+    message = 'Latent Channels | Correlation | SAP | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc,
+                                                    sap_score, euclidean_distance, trial.number)
 
     df = pd.DataFrame(latent_codes.cpu().numpy())
     df1 = pd.DataFrame(angles.cpu().numpy())
