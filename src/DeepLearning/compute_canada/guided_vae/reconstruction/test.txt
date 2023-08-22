@@ -1,1 +1,3 @@
 Latent Channels | Correlation | SAP | Euclidean Distance | Model | :  | 12 | 1.000 | 0.000 | 425.250 | 0 |
+Latent Channels | Correlation | SAP | Euclidean Distance | Model | :  | 16 | 1.000 | 0.040 | 281.207 | 1 |
+Latent Channels | Correlation | SAP | Euclidean Distance | Model | :  | 12 | 1.000 | 0.000 | 294.435 | 2 |
