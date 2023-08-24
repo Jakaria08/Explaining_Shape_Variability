@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
-from reconstruction.loss import SNNLCrossEntropy, CorrelationLoss
+from reconstruction.loss import SNNLCrossEntropy, CorrelationLoss, SNNLoss
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -67,12 +67,13 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             #print(loss_cls.item())
             loss += loss_cls * w_cls
         if guided_contrastive_loss:
-            SNN_Loss = SNNLCrossEntropy(temperature=temp)
+            #SNN_Loss = SNNLCrossEntropy(temperature=temp)
+            SNN_Loss = SNNLoss(temperature=temp)
     
             z = model.reparameterize(mu, log_var)
             #print(z.shape)
             #print(label[:, :, 0].shape)
-            loss_snn = SNN_Loss.SNNL(z, label[:, :, 0], temp=temp)
+            loss_snn = SNN_Loss(z[:,0], label[:, :, 0])
             loss += loss_snn * w_cls
             #print(loss_snn.item())
             snnl += loss_snn.item()

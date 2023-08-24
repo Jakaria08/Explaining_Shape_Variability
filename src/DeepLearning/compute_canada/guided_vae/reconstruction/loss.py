@@ -142,3 +142,30 @@ class CorrelationLoss(nn.Module):
         total_loss = ncc_loss + other_dims_loss
 
         return total_loss
+
+# SNNL loss modified
+class SNNLoss(nn.Module):
+    def __init__(self, T):
+        super(SNNLoss, self).__init__()
+        self.T = T
+
+    def forward(self, x, y):
+        b = x.size(0)  # Batch size
+        lsn_loss = 0.0
+        
+        for i in range(b):
+            xi = x[i]
+            yi = y[i]
+            
+            numerator = 0.0
+            denominator = 0.0
+            
+            for j in range(b):
+                if j != i and y[j] == yi:
+                    numerator += torch.exp(-((xi - x[j])**2).sum() / self.T)
+                    
+                denominator += torch.exp(-((xi - x[j])**2).sum() / self.T)
+            
+            lsn_loss += -torch.log(numerator / denominator)
+        
+        return lsn_loss / b
