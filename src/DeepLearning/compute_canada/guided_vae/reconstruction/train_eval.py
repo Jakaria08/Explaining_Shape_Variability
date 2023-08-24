@@ -49,6 +49,9 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
     cls1_error = 0
     cls2_error = 0
 
+    snnl = 0
+    corrl = 0
+
     for data in loader:
 
 	    # Load Data
@@ -72,6 +75,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             loss_snn = SNN_Loss.SNNL(z, label[:, :, 0], temp=temp)
             loss += loss_snn * w_cls
             #print(loss_snn.item())
+            snnl += loss_snn.item()
         if correlation_loss:
             corr_loss = CorrelationLoss()
             z = model.reparameterize(mu, log_var)
@@ -79,6 +83,8 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             #print(label[:, :, 0].shape)
             loss_corr = corr_loss(z, label[:, :, 0])
             loss += loss_corr * w_cls
+            #print(corr_loss.item())
+            corrl += loss_corr.item()
 
 
         loss.backward()        
@@ -110,7 +116,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             loss *= w_cls
             loss.backward()
             optimizer.step()
-    
+    print("snnl: "+str(snnl)+"corrl: "+str(corrl))
     return total_loss / len(loader)
 
 

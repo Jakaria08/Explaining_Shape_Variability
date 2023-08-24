@@ -1,6 +1,7 @@
 import numpy as np 
 import torch
 import torch.nn as nn
+import math
 
 class SNNLCrossEntropy():
     STABILITY_EPS = 0.00001
@@ -111,23 +112,30 @@ class CorrelationLoss(nn.Module):
         super(CorrelationLoss, self).__init__()
 
     def forward(self, z_batch, y_batch):
-        # Calculate normalized cross-correlation (NCC) between z[0] and y
-        ncc = torch.mean((z_batch[:, 0] - torch.mean(z_batch[:, 0])) * (y_batch - torch.mean(y_batch))) / (
-            torch.std(z_batch[:, 0]) * torch.std(y_batch)
-        )
+        # Split z_batch and y_batch into categories
+        z_1 = z_batch[y_batch.flatten() == 1.0]
+        z_0 = z_batch[y_batch.flatten() == 0.0]
+        n_1 = len(z_1)
+        n_0 = len(z_0)
+        n = n_1 + n_0
+
+        # Calculate means for the two categories
+        mean_z_1 = torch.mean(z_1[:, 0])
+        mean_z_0 = torch.mean(z_0[:, 0])
+
+        # Multiplier
+        mlt = math.sqrt((n_1 * n_0) / (n**2))
 
         # Calculate point biserial correlation
-        point_biserial = ncc * (torch.std(y_batch) / torch.std(z_batch[:, 0]))
+        r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt
 
         # Calculate correlation of other dimensions with y
-        other_dim_corrs = torch.zeros_like(z_batch[:, 1:])
+        other_dim_corrs = torch.zeros_like(z_batch[:, 1])
         for i in range(1, z_batch.shape[1]):
-            other_dim_corrs[:, i - 1] = torch.mean(
-                (z_batch[:, i] - torch.mean(z_batch[:, i])) * (y_batch - torch.mean(y_batch))
-            ) / (torch.std(z_batch[:, i]) * torch.std(y_batch))
+            other_dim_corrs[i-1] = (torch.mean(z_1[:, i]) - torch.mean(z_0[:, i])) / torch.std(z_batch[:, i]) * mlt
 
         # Loss components
-        ncc_loss = 1 - torch.abs(point_biserial)  # Minimize correlation
+        ncc_loss = 1 - torch.abs(r_pb)  # Minimize correlation
         other_dims_loss = torch.mean(torch.abs(other_dim_corrs))  # Minimize other dimension correlations
 
         # Combine losses with weights
