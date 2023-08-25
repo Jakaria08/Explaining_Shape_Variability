@@ -159,7 +159,6 @@ def test(model, loader, device, beta):
 
     return total_loss / len(loader)
 
-
 def eval_error(model, test_loader, device, meshdata, out_dir):
     model.eval()
     model.training = False
