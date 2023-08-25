@@ -192,7 +192,7 @@ def objective(trial):
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
             angles.append(y[:, :, 0])
-            thick.append(y[:, :, 1]) 
+            thick.append(y[:, :, 2]) 
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
     thick = torch.concat(thick).view(-1,1)
@@ -231,8 +231,8 @@ def objective(trial):
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
-    if sap_score > 0.85:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/{trial.number}/"
+    if sap_score > 0:
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
@@ -264,7 +264,7 @@ def objective(trial):
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/models/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])

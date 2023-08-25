@@ -91,7 +91,7 @@ class CoMA(InMemoryDataset):
     def process(self):
         print('Processing...')
 
-        labels = torch.load(f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus_two/labels.pt")
+        labels = torch.load(f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/labels.pt")
 
         #X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), stratify=list(labels.values()), test_size=0.2, random_state=0)
         X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), test_size=0.2, random_state=28)
