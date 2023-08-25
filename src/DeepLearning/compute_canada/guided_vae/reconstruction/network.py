@@ -92,14 +92,15 @@ class AE(nn.Module):
         self.reset_parameters()
 
 	    # Excitation
-        self.reg_sq = nn.Sequential(
+        self.cls_sq = nn.Sequential(
             nn.Linear(1, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Linear(8, 8),
             nn.BatchNorm1d(8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
-            nn.Linear(8, 1))
+            nn.Linear(8, 1),
+            nn.Sigmoid())
 
         # Excitation 2
         self.reg_sq_2 = nn.Sequential(
@@ -155,9 +156,9 @@ class AE(nn.Module):
 
         return sample
 
-    def reg(self, z): # first excitation
+    def cls(self, z): # first excitation
         z = torch.split(z, 1, 1)[0]
-        return self.reg_sq(z)
+        return self.cls_sq(z)
 
     def reg_2(self, z): # second excitation
         z = torch.split(z, 1, 1)[1]
@@ -167,11 +168,30 @@ class AE(nn.Module):
         mu, log_var = self.encoder(x)
         z = self.reparameterize(mu, log_var)
         out = self.decoder(z)
-        return out, mu, log_var, self.reg(z), self.reg_2(z)
+        return out, mu, log_var, self.cls(z), self.reg_2(z)
+
+# Inhibition classifier
+class Classifier(nn.Module):
+    def __init__(self, n_vae_dis):
+        super(Classifier, self).__init__()
+
+        self.cls_sq_n = nn.Sequential(
+            nn.Linear(n_vae_dis - 1, 8),
+            nn.BatchNorm1d(8),
+            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.Linear(8, 8),
+            nn.BatchNorm1d(8),
+            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.Linear(8, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.cls_sq_n(x)
 
 # Inhibition
 class Regressor(nn.Module):
-    def __init__(self, n_vae_dis=16):
+    def __init__(self, n_vae_dis):
         super(Regressor, self).__init__()
 
         self.reg_sq = nn.Sequential(

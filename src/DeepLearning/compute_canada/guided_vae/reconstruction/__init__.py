@@ -1,4 +1,4 @@
-from .network import AE, Regressor
+from .network import AE, Regressor, Classifier
 from .train_eval import run, eval_error
 
 __all__ = [
@@ -6,4 +6,5 @@ __all__ = [
     'run',
     'eval_error',
     'Regressor',
+    'Classifier'
 ]
