@@ -68,7 +68,7 @@ def train(model, optimizer, model_c, optimizer_c, loader, device, beta, w_cls, g
             loss += loss_cls * w_cls
         if guided_contrastive_loss:
             #SNN_Loss = SNNLCrossEntropy(temperature=temp)
-            SNN_Loss = SNNLoss(temperature=temp)
+            SNN_Loss = SNNLoss(temp)
     
             z = model.reparameterize(mu, log_var)
             #print(z.shape)
