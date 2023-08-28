@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
+from reconstruction.loss import ClsCorrelationLoss,RegCorrelationLoss, SNNLoss
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -54,6 +55,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     cls1_error_2 = 0
     cls2_error_2 = 0
 
+    snnl = 0
+    corrl_cls = 0
+    corrl_reg = 0
+
     for data in loader:
 	    # Load Data
         x = data.x.to(device)
@@ -69,6 +74,36 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             #print(re[0:5])
             #print(label[:, :, 0][0:5])
             #print(loss_cls.item())
+        
+        if guided_contrastive_loss:
+            #SNN_Loss = SNNLCrossEntropy(temperature=temp)
+            SNN_Loss = SNNLoss(temp)
+    
+            z = model.reparameterize(mu, log_var)
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            loss_snn = SNN_Loss(z[:,0], label[:, :, 0])
+            loss += loss_snn * w_cls
+            #print(loss_snn.item())
+            snnl += loss_snn.item()
+
+        if correlation_loss:
+            corr_loss_cls = ClsCorrelationLoss()
+            corr_loss_reg = RegCorrelationLoss()
+            z = model.reparameterize(mu, log_var)
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            #cls
+            loss_corr_cls = corr_loss_cls(z, label[:, :, 0])
+            loss += loss_corr_cls * w_cls
+            #reg
+            loss_corr_reg = corr_loss_reg(z, label[:, :, 2])
+            loss += loss_corr_reg * w_cls
+            #print(corr_loss.item())
+            corrl_cls += loss_corr_cls.item()
+            corrl_reg += loss_corr_reg.item()
+        
+
         loss.backward()        
         optimizer.step()
         total_loss += loss.item()
@@ -135,7 +170,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             loss *= w_cls
             loss.backward()
             optimizer.step()
-    
+    print(corrl_cls)
+    print(corrl_reg)
     return total_loss / len(loader)
 
 
