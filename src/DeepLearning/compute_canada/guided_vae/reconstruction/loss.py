@@ -143,29 +143,61 @@ class CorrelationLoss(nn.Module):
 
         return total_loss
 
-# SNNL loss modified
+# SNNL loss modified fast
+class SNNLoss(nn.Module):
+    def __init__(self, T):
+        super(SNNLoss, self).__init__()
+        self.T = T
+        self.STABILITY_EPS = 0.00001
+
+    def forward(self, x, y):
+        b = x.size(0)  # Batch size
+        y = y.squeeze()
+
+        x_expanded = x.unsqueeze(1)  # Expand dimensions for broadcasting
+        y_expanded = y.unsqueeze(0)
+
+        same_class_mask = y_expanded == y_expanded.t()
+
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
+        #print(exp_distances)
+
+        numerator = exp_distances * same_class_mask
+        denominator = exp_distances
+
+        #print(denominator)
+
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
+
+        return lsn_loss
+
+# SNNL loss modified slow
+'''
 class SNNLoss(nn.Module):
     def __init__(self, T):
         super(SNNLoss, self).__init__()
         self.T = T
 
     def forward(self, x, y):
-        b = x.size(0)  # Batch size
-        lsn_loss = 0.0
+    b = x.size(0)  # Batch size
+    lsn_loss = 0.0
+    
+    for i in range(b):
+        xi = x[i]
+        yi = y[i]
         
-        for i in range(b):
-            xi = x[i]
-            yi = y[i]
-            
-            numerator = 0.0
-            denominator = 0.0
-            
-            for j in range(b):
-                if j != i and y[j] == yi:
-                    numerator += torch.exp(-((xi - x[j])**2).sum() / self.T)
-                    
-                denominator += torch.exp(-((xi - x[j])**2).sum() / self.T)
-            
-            lsn_loss += -torch.log(numerator / denominator)
+        numerator = 0.0
+        denominator = 0.0
         
-        return lsn_loss / b
+        for j in range(b):
+            if j != i and y[j] == yi:
+                numerator += torch.exp(-((xi - x[j])**2).sum() / T)
+            if j != i:    
+                denominator += torch.exp(-((xi - x[j])**2).sum() / T)
+        lsn_loss += -torch.log(numerator / denominator)
+    
+    return lsn_loss / b
+
+'''
