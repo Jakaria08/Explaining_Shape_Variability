@@ -151,9 +151,9 @@ class RegCorrelationLoss(nn.Module):
 
     def forward(self, z_batch, y_batch):
         # Calculate the means of x and y
+        y_batch = y_batch.squeeze()
         mean_z = torch.mean(z_batch[:, 1])
         mean_y = torch.mean(y_batch)
-        
         # Calculate the differences from the means
         diff_z = z_batch[:, 1] - mean_z
         diff_y = y_batch - mean_y
@@ -193,8 +193,40 @@ class RegCorrelationLoss(nn.Module):
         total_loss = ncc_loss + other_dims_loss
 
         return total_loss
+    
+# SNNL loss modified fast
+class SNNLoss(nn.Module):
+    def __init__(self, T):
+        super(SNNLoss, self).__init__()
+        self.T = T
+        self.STABILITY_EPS = 0.00001
 
-# SNNL loss modified
+    def forward(self, x, y):
+        b = x.size(0)  # Batch size
+        y = y.squeeze()
+
+        x_expanded = x.unsqueeze(1)  # Expand dimensions for broadcasting
+        y_expanded = y.unsqueeze(0)
+
+        same_class_mask = y_expanded == y_expanded.t()
+
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
+        #print(exp_distances)
+
+        numerator = exp_distances * same_class_mask
+        denominator = exp_distances
+
+        #print(denominator)
+
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
+
+        return lsn_loss
+
+
+'''
+# SNNL loss modified slow
 class SNNLoss(nn.Module):
     def __init__(self, T):
         super(SNNLoss, self).__init__()
@@ -220,3 +252,4 @@ class SNNLoss(nn.Module):
             lsn_loss += -torch.log(numerator / denominator)
         
         return lsn_loss / b
+'''
