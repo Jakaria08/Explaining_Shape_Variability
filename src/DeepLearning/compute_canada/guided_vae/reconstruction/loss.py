@@ -223,6 +223,38 @@ class SNNLoss(nn.Module):
         lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
 
         return lsn_loss
+    
+# SNNL loss reg modified fast
+class SNNRegLoss(nn.Module):
+    def __init__(self, T):
+        super(SNNRegLoss, self).__init__()
+        self.T = T
+        self.STABILITY_EPS = 0.00001
+        self.threshold = 0.05001
+
+    def forward(self, x, y):
+        b = x.size(0)  # Batch size
+        y = y.squeeze()
+
+        x_expanded = x.unsqueeze(1)  # Expand dimensions for broadcasting
+        y_expanded = y.unsqueeze(0)
+
+        abs_diff_matrix = torch.abs(y_expanded - y_expanded.t())
+        same_class_mask = abs_diff_matrix <= self.threshold
+
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
+        #print(exp_distances)
+
+        numerator = exp_distances * same_class_mask
+        denominator = exp_distances
+
+        #print(denominator)
+
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
+
+        return lsn_loss
 
 
 '''
