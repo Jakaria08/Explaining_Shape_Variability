@@ -197,8 +197,15 @@ def test(model, loader, device, beta):
     with torch.no_grad():
         for i, data in enumerate(loader):
             x = data.x.to(device)
+            has_nan = torch.isnan(x).any().item()
+            if has_nan:
+                continue
             y = data.y.to(device)
             pred, mu, log_var, re, re_2 = model(x)
+            has_nan_1 = torch.isnan(re).any().item()
+            if has_nan_1:
+                continue
+            #print(re.shape)
             total_loss += loss_function(x, pred, mu, log_var, beta)
             recon_loss += F.l1_loss(pred, x, reduction='mean')
             reg_loss += F.binary_cross_entropy(re, y[:, :, 0], reduction='mean')

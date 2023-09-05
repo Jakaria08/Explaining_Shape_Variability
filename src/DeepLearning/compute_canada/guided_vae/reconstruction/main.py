@@ -181,7 +181,7 @@ def objective(trial):
                                                 args.decay_step,
                                                 gamma=args.lr_decay)
 
-    args.guided = False
+    args.guided = True
     args.guided_contrastive_loss = False
     args.correlation_loss = False
 
