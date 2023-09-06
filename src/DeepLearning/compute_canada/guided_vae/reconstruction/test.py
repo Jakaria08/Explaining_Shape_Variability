@@ -8,7 +8,7 @@ from scipy import stats
 
 device = torch.device('cuda', 0)
 # Set the path to the saved model directory
-base_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models"
+base_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models"
 
 # Get a list of all folders within the "models" folder
 folders = [folder for folder in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, folder))]
@@ -80,7 +80,7 @@ for folder_name in folders:
         message = 'Model | Correlation | SAP | : {:s}+{:.3f} | {:.3f}'.format(folder_name, pcc,
                                                     sap_score)
 
-        out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/test.txt'
+        out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/test.txt'
         with open(out_error_fp, 'a') as log_file:
             log_file.write('{:s}\n'.format(message))
             

@@ -201,8 +201,8 @@ def objective(trial):
             recon, mu, log_var, re, re_2 = model(x)
             z = model.reparameterize(mu, log_var)
             latent_codes.append(z)
-            angles.append(y[:, :, 0])
-            thick.append(y[:, :, 2]) 
+            angles.append(y[:, :, 1])
+            thick.append(y[:, :, 0]) 
             re_pre.append(re)
     latent_codes = torch.concat(latent_codes)
     angles = torch.concat(angles).view(-1,1)
@@ -228,10 +228,10 @@ def objective(trial):
     sap_score_thick = sap(factors=thick.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
 
     print("")
-    print(f"Correlation: {pcc}")
-    print(f"Correlation thick score: {pcc_thick}")
-    print(f"SAP Score:   {sap_score}")
-    print(f"SAP Score Label 2:   {sap_score_thick}")
+    print(f"Correlation disease: {pcc}")
+    print(f"Correlation age score: {pcc_thick}")
+    print(f"SAP Score disease:   {sap_score}")
+    print(f"SAP Score Label 2 age:   {sap_score_thick}")
     print("")
 
     df = pd.DataFrame(latent_codes.cpu().numpy())
@@ -239,8 +239,8 @@ def objective(trial):
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
     excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/thick.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/disease.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/age.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
