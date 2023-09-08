@@ -222,7 +222,7 @@ def objective(trial):
     # Pearson Correlation Coefficient
     re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
     pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
-    pcc_r = point_biserial_correlation(angles.view(-1).cpu().numpy(), re_pre)
+    pcc_r = point_biserial_correlation(latent_codes.cpu().numpy(), angles.view(-1).cpu().numpy())
     pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
