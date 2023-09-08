@@ -104,7 +104,7 @@ class CoMA(InMemoryDataset):
         #X_val = X_test[:51]
         #X_test_new = X_test[51:]
 
-        fps = glob(osp.join(self.raw_dir, 'torus_two/*.ply'))
+        fps = glob(osp.join(self.raw_dir, 'torus/*.ply'))
         '''
         if len(fps) == 0:
             extract_zip(self.raw_paths[0], self.raw_dir, log=False)

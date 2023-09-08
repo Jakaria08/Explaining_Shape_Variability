@@ -11,7 +11,7 @@ from psbody.mesh import Mesh
 from scipy import stats
 from reconstruction import AE, run, eval_error
 from datasets import MeshData
-from utils import utils, writer, DataLoader, mesh_sampling, sap
+from utils import utils, writer, DataLoader, mesh_sampling, sap, point_biserial_correlation
 import optuna
 from contextlib import redirect_stdout
 import shutil
@@ -222,6 +222,7 @@ def objective(trial):
     # Pearson Correlation Coefficient
     re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
     pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
+    pcc_r = point_biserial_correlation(angles.view(-1).cpu().numpy(), re_pre)
     pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
@@ -229,6 +230,7 @@ def objective(trial):
 
     print("")
     print(f"Correlation: {pcc}")
+    print(f"Correlation R: {pcc_r}")
     print(f"Correlation thick score: {pcc_thick}")
     print(f"SAP Score:   {sap_score}")
     print(f"SAP Score Label 2:   {sap_score_thick}")
@@ -246,7 +248,7 @@ def objective(trial):
     df1.to_csv(excel_file_path_angles, index=False)
     df2.to_csv(excel_file_path_thick, index=False)
 
-    message = 'Latent Channels | Correlation | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc,
+    message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc, pcc_r,
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, trial.number)
 
 
