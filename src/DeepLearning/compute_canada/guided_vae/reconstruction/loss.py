@@ -230,7 +230,7 @@ class SNNRegLoss(nn.Module):
         super(SNNRegLoss, self).__init__()
         self.T = T
         self.STABILITY_EPS = 0.00001
-        self.threshold = 0.05001
+        self.threshold = 0.025001
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size
