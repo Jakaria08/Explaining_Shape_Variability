@@ -11,7 +11,7 @@ from psbody.mesh import Mesh
 from scipy import stats
 from reconstruction import AE, run, eval_error
 from datasets import MeshData
-from utils import utils, writer, DataLoader, mesh_sampling, sap
+from utils import utils, writer, DataLoader, mesh_sampling, sap, point_biserial_correlation
 import optuna
 from contextlib import redirect_stdout
 import shutil
@@ -48,9 +48,9 @@ parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
 
 # others
-parser.add_argument('--correlation_loss', type=bool, default=True)
+parser.add_argument('--correlation_loss', type=bool, default=False)
 parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
-parser.add_argument('--guided', type=bool, default=False)
+parser.add_argument('--guided', type=bool, default=True)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
 
@@ -59,7 +59,7 @@ args = parser.parse_args()
 #args.work_dir = osp.dirname(osp.realpath(__file__))
 args.work_dir = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae"
 args.data_fp = osp.join(args.work_dir, 'data', args.dataset)
-args.out_dir = osp.join(args.work_dir, 'data', 'out_corr', args.exp_name)
+args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
 args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 #print(args)
 
@@ -181,9 +181,9 @@ def objective(trial):
                                                 args.decay_step,
                                                 gamma=args.lr_decay)
 
-    args.guided = False
+    args.guided = True
     args.guided_contrastive_loss = False
-    args.correlation_loss = True
+    args.correlation_loss = False
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature)
@@ -222,6 +222,7 @@ def objective(trial):
     # Pearson Correlation Coefficient
     re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
     pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
+    pcc_r = point_biserial_correlation(latent_codes.cpu().numpy(), angles.view(-1).cpu().numpy())
     pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
     # SAP Score
     sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
@@ -229,6 +230,7 @@ def objective(trial):
 
     print("")
     print(f"Correlation disease: {pcc}")
+    print(f"Correlation R: {pcc_r}")
     print(f"Correlation age score: {pcc_thick}")
     print(f"SAP Score disease:   {sap_score}")
     print(f"SAP Score Label 2 age:   {sap_score_thick}")
@@ -238,24 +240,24 @@ def objective(trial):
     df1 = pd.DataFrame(angles.cpu().numpy())
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/disease.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/age.csv"
+    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/latent_codes.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/disease.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/age.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
     df2.to_csv(excel_file_path_thick, index=False)
 
-    message = 'Latent Channels | Correlation | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc,
+    message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc, pcc_r,
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, trial.number)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/test.txt'
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/{trial.number}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/{trial.number}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
@@ -280,7 +282,7 @@ def objective(trial):
 class LogAfterEachTrial:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
         trials = study.trials
-        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_corr/intermediate_trials.pt")
+        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models/intermediate_trials.pt")
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
