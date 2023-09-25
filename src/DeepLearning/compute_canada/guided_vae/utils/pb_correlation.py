@@ -14,9 +14,9 @@ def point_biserial_correlation(z_batch, y_batch):
     mean_z_0 = np.mean(z_0[:, 0])
 
     # Multiplier
-    mlt = math.sqrt((n_1 * n_0) / (n**2))
+    mlt = math.sqrt((n_1 * n_0) / (n**2)) # might be zero when n1=0
 
     # Calculate point biserial correlation
-    r_pb = (mean_z_1 - mean_z_0) / (np.std(z_batch[:, 0]) * mlt)
+    r_pb = (mean_z_1 - mean_z_0) / (np.std(z_batch[:, 0]) * mlt) #might be zero division
 
     return r_pb

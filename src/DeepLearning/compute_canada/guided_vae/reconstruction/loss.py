@@ -124,10 +124,10 @@ class ClsCorrelationLoss(nn.Module):
         mean_z_0 = torch.mean(z_0[:, 0])
 
         # Multiplier
-        mlt = math.sqrt((n_1 * n_0) / (n**2))
+        mlt = math.sqrt((n_1 * n_0) / (n**2)) #might be zero when n1=0
 
         # Calculate point biserial correlation
-        r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt
+        r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt #might be zero division
 
         # Calculate correlation of other dimensions with y
         other_dim_corrs = torch.zeros_like(z_batch[:, 1])
