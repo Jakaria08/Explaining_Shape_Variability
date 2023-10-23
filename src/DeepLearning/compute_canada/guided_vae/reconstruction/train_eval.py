@@ -64,6 +64,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
+        #print(label[:, :, 1])
         #print(label)
 	    # VAE + Exhibition
         optimizer.zero_grad()
@@ -181,7 +182,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer.step()
     #print(corrl_cls)
     #print(corrl_reg)
-    #print(snnl)
+    #print("snnl: "+str(snnl))
     #print(snnl_reg)
     return total_loss / len(loader)
 
