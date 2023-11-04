@@ -181,8 +181,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer.step()
     #print(corrl_cls)
     #print(corrl_reg)
-    #print(snnl)
-    #print(snnl_reg)
+    print(snnl)
+    print(snnl_reg)
     return total_loss / len(loader)
 
 
