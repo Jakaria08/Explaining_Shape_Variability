@@ -65,7 +65,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     # Calculate total and desired number of batches
     total_batches = len(loader)
     # i is the percentage of train data
+    print("Data Percentage: "+str(i))
     desired_batches = math.ceil(i/10 * total_batches)
+    print("desired batches: "+ str(desired_batches))
+    print("total batches: " + str(total_batches))
     # Select desired number of batches according to the percentage of train data
     subset_loader = DataLoader(Subset(loader.dataset, range(desired_batches)), 
                                batch_size=loader.batch_size)
@@ -191,8 +194,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer.step()
     #print(corrl_cls)
     #print(corrl_reg)
-    print(snnl)
-    print(snnl_reg)
+    #print(snnl)
+    #print(snnl_reg)
     return total_loss / len(loader)
 
 
