@@ -184,10 +184,10 @@ args.guided = True
 args.guided_contrastive_loss = False
 args.correlation_loss = False
 
-for i in range(10, 0, -1):
-    print("Data Percentage: "+str(i))
+for j in range(10, 0, -1):
+    print("Data Percentage: "+str(j))
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, i)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, j)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -258,8 +258,8 @@ for i in range(10, 0, -1):
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        print("Data Percentage: "+str(i))
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{i}/"
+        print("Data Percentage: "+str(j))
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 

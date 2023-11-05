@@ -25,6 +25,13 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     train_losses, test_losses = [], []
 
+    total_batches = len(train_loader)
+    # i is the percentage of train data
+    print("Data Percentage: "+str(i))
+    desired_batches = math.ceil(i/10 * total_batches)
+    print("desired batches: "+ str(desired_batches))
+    print("total batches: " + str(total_batches))
+
     for epoch in range(1, epochs + 1):
         t = time.time()
         train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i)
@@ -65,10 +72,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     # Calculate total and desired number of batches
     total_batches = len(loader)
     # i is the percentage of train data
-    print("Data Percentage: "+str(i))
+    #print("Data Percentage: "+str(i))
     desired_batches = math.ceil(i/10 * total_batches)
-    print("desired batches: "+ str(desired_batches))
-    print("total batches: " + str(total_batches))
+    #print("desired batches: "+ str(desired_batches))
+    #print("total batches: " + str(total_batches))
     # Select desired number of batches according to the percentage of train data
     subset_loader = DataLoader(Subset(loader.dataset, range(desired_batches)), 
                                batch_size=loader.batch_size)
