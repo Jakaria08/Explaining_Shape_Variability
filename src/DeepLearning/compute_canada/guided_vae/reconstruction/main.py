@@ -49,8 +49,8 @@ parser.add_argument('--wcls', type=int, default=1)
 
 # others
 parser.add_argument('--correlation_loss', type=bool, default=False)
-parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
-parser.add_argument('--guided', type=bool, default=True)
+parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
+parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
 
@@ -145,23 +145,23 @@ up_transform_list = [
 ]
 
 # define model and optimizer and set parameters
-args.epochs = 400
-args.batch_size = 8
-args.wcls = 8
-args.beta = 0.05267669943387056
-args.lr = 0.0009280828833567735
-args.lr_decay = 0.8999999999999999
-args.decay_step = 38
+args.epochs = 300
+args.batch_size = 20
+args.wcls = 63
+args.beta = 0.006145902872613284
+args.lr = 0.00014669194595000342
+args.lr_decay = 0.96
+args.decay_step = 13
 args.latent_channels = 12
-args.temperature = 1
+args.temperature = 61
 
-sequence_length = 33
+sequence_length = 12
 args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-dilation = 1
+dilation = 2
 args.dilation = [dilation, dilation, dilation, dilation]
 
-out_channel = 16
+out_channel = 32
 args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
 print(args)    
 
@@ -180,8 +180,8 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                             args.decay_step,
                                             gamma=args.lr_decay)
 
-args.guided = True
-args.guided_contrastive_loss = False
+args.guided = False
+args.guided_contrastive_loss = True
 args.correlation_loss = False
 
 for j in range(10, 0, -1):
