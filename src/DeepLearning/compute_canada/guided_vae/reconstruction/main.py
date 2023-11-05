@@ -250,7 +250,7 @@ for j in range(10, 0, -1):
     df2.to_csv(excel_file_path_thick, index=False)
 
     message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc, pcc_r,
-                                                    sap_score, pcc_thick, sap_score_thick, euclidean_distance, i)
+                                                    sap_score, pcc_thick, sap_score_thick, euclidean_distance, j)
 
 
     out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/test.txt'
