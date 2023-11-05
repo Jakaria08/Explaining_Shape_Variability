@@ -131,7 +131,6 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             #print(corr_loss.item())
             corrl_cls += loss_corr_cls.item()
             corrl_reg += loss_corr_reg.item()
-        
 
         loss.backward()        
         optimizer.step()
@@ -199,10 +198,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             loss *= w_cls
             loss.backward()
             optimizer.step()
-    #print(corrl_cls)
-    #print(corrl_reg)
-    print(snnl)
-    print(snnl_reg)
+    print(corrl_cls)
+    print(corrl_reg)
+    #print(snnl)
+    #print(snnl_reg)
     return total_loss / len(loader)
 
 
