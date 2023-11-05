@@ -1,9 +1,11 @@
 import time
+import math
 import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
 from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss
+from torch.utils.data import DataLoader, Subset
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -12,7 +14,7 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp):
+        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp, i):
     
     model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
@@ -24,7 +26,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp)
+        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i)
         t_duration = time.time() - t
         test_loss = test(model, test_loader, device, beta)
         scheduler.step()
@@ -41,7 +43,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp):
+def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
     model_c.train()
     model_c_2.train()
@@ -59,8 +61,15 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     snnl_reg = 0
     corrl_cls = 0
     corrl_reg = 0
+    # Calculate total and desired number of batches
+    total_batches = len(loader)
+    # i is the percentage of train data
+    desired_batches = math.ceil(i/10 * total_batches)
+    # Select desired number of batches according to the percentage of train data
+    subset_loader = DataLoader(Subset(loader.dataset, range(desired_batches)), 
+                               batch_size=loader.batch_size, shuffle=loader.shuffle, num_workers=loader.num_workers)
 
-    for data in loader:
+    for data in subset_loader:
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)

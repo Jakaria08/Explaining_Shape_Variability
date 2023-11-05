@@ -49,8 +49,8 @@ parser.add_argument('--wcls', type=int, default=1)
 
 # others
 parser.add_argument('--correlation_loss', type=bool, default=False)
-parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
-parser.add_argument('--guided', type=bool, default=False)
+parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
+parser.add_argument('--guided', type=bool, default=True)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
 
@@ -181,12 +181,13 @@ def objective(trial):
                                                 args.decay_step,
                                                 gamma=args.lr_decay)
 
-    args.guided = False
-    args.guided_contrastive_loss = True
+    args.guided = True
+    args.guided_contrastive_loss = False
     args.correlation_loss = False
 
-    run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature)
+    for i in range(10, 0, -1):
+        run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
+            writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, i)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
