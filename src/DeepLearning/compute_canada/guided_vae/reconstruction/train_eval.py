@@ -5,7 +5,8 @@ import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
 from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import Subset
+from utils import DataLoader
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -67,7 +68,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     desired_batches = math.ceil(i/10 * total_batches)
     # Select desired number of batches according to the percentage of train data
     subset_loader = DataLoader(Subset(loader.dataset, range(desired_batches)), 
-                               batch_size=loader.batch_size, shuffle=loader.shuffle, num_workers=loader.num_workers)
+                               batch_size=loader.batch_size)
 
     for data in subset_loader:
 	    # Load Data

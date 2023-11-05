@@ -144,50 +144,49 @@ up_transform_list = [
     for up_transform in tmp['up_transform']
 ]
 
-def objective(trial):
+# define model and optimizer and set parameters
+args.epochs = 400
+args.batch_size = 8
+args.wcls = 8
+args.beta = 0.05267669943387056
+args.lr = 0.0009280828833567735
+args.lr_decay = 0.8999999999999999
+args.decay_step = 38
+args.latent_channels = 12
+args.temperature = 1
 
-    args.epochs = trial.suggest_int("epochs", 100, 400, step=100)
-    args.batch_size = trial.suggest_int("batch_size", 4, 32, 4)
-    args.wcls = trial.suggest_int("w_cls", 1, 100)
-    args.beta = trial.suggest_float("beta", 0.001, 0.3, log=True)
-    args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
-    args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
-    args.decay_step = trial.suggest_int("decay_step", 1, 50)
-    args.latent_channels = trial.suggest_int("latent_channels", 12, 16, step=4)
-    args.temperature = trial.suggest_int("temperature", 1, 200, step=20)
+sequence_length = 33
+args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-    sequence_length = trial.suggest_int("sequence_length", 5, 50)
-    args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
+dilation = 1
+args.dilation = [dilation, dilation, dilation, dilation]
 
-    dilation = trial.suggest_int("dilation", 1, 2)
-    args.dilation = [dilation, dilation, dilation, dilation]
-    
-    out_channel = trial.suggest_int("out_channel", 8, 32, 8)
-    args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
-    print(args)    
+out_channel = 16
+args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
+print(args)    
 
-    model = AE(args.in_channels, args.out_channels, args.latent_channels,
-            spiral_indices_list, down_transform_list,
-            up_transform_list).to(device)
+model = AE(args.in_channels, args.out_channels, args.latent_channels,
+        spiral_indices_list, down_transform_list,
+        up_transform_list).to(device)
 
-    print('Number of parameters: {}'.format(utils.count_parameters(model)))
-    print(model)
+print('Number of parameters: {}'.format(utils.count_parameters(model)))
+print(model)
 
-    optimizer = torch.optim.Adam(model.parameters(),
-                                    lr=args.lr,
-                                    weight_decay=args.weight_decay)
+optimizer = torch.optim.Adam(model.parameters(),
+                                lr=args.lr,
+                                weight_decay=args.weight_decay)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                args.decay_step,
-                                                gamma=args.lr_decay)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                            args.decay_step,
+                                            gamma=args.lr_decay)
 
-    args.guided = True
-    args.guided_contrastive_loss = False
-    args.correlation_loss = False
+args.guided = True
+args.guided_contrastive_loss = False
+args.correlation_loss = False
 
-    for i in range(10, 0, -1):
-        run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-            writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, i)
+for i in range(10, 0, -1):
+    run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, i)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -250,7 +249,7 @@ def objective(trial):
     df2.to_csv(excel_file_path_thick, index=False)
 
     message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc, pcc_r,
-                                                    sap_score, pcc_thick, sap_score_thick, euclidean_distance, trial.number)
+                                                    sap_score, pcc_thick, sap_score_thick, euclidean_distance, i)
 
 
     out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/test.txt'
@@ -258,7 +257,7 @@ def objective(trial):
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{trial.number}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{i}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
@@ -277,14 +276,3 @@ def objective(trial):
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
         shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
 
-
-    return euclidean_distance, sap_score, sap_score_thick
-
-class LogAfterEachTrial:
-    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
-        trials = study.trials
-        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/intermediate_trials.pt")
-
-log_trials = LogAfterEachTrial()
-study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-study.optimize(objective, n_trials=400, callbacks=[log_trials])
