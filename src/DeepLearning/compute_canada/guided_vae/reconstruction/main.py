@@ -188,7 +188,7 @@ def objective(trial):
     args.correlation_loss = False
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
