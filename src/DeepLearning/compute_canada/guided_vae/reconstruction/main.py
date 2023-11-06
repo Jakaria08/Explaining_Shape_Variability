@@ -42,7 +42,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-5)
 parser.add_argument('--weight_decay_c', type=float, default=1e-4)
 
 # training hyperparameters
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--epochs', type=int, default=200)
 parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
@@ -185,9 +185,10 @@ args.guided_contrastive_loss = False
 args.correlation_loss = True
 
 for j in range(10, 0, -1):
-    print("Data Percentage: "+str(j))
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, j)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, 
+        args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
+        j)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -258,7 +259,6 @@ for j in range(10, 0, -1):
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        print("Data Percentage: "+str(j))
         model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
