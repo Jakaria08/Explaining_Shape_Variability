@@ -5,7 +5,7 @@ from torch_geometric.data import Data, Batch
 
 
 class DataLoader(torch.utils.data.DataLoader):
-    def __init__(self, dataset, batch_size=1, shuffle=False, **kwargs):
+    def __init__(self, dataset, batch_size=1, shuffle=True, **kwargs):
         def collate(data_list):
             batch = Batch()
             batch.batch = []

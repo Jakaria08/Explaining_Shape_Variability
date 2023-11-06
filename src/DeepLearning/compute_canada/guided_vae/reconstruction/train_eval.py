@@ -1,9 +1,12 @@
 import time
+import math
 import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
 from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss
+from utils import DataLoader
+from torch.utils.data import Subset
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -61,10 +64,26 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_reg = 0
     w_loss = 0
 
-    for data in loader:
+    # Calculate total and desired number of data
+    # this is for taking small subset of data from big dataset
+    total_data = len(loader)*loader.batch_size
+    # i is the percentage of train data
+    #print("Data Percentage: "+str(i))
+    desired_data = math.ceil(0.1 * total_data)
+    #print("desired batches: "+ str(desired_batches))
+    #print("total batches: " + str(total_batches))
+    # Select desired number of batches according to the percentage of train data
+    subset_loader = DataLoader(Subset(loader.dataset, range(desired_data)), 
+                               batch_size=loader.batch_size)
+
+
+    for data in subset_loader:
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
+        
+        if x.shape[0] != loader.batch_size:
+            continue
         #print(label)
 	    # VAE + Exhibition
         optimizer.zero_grad()
