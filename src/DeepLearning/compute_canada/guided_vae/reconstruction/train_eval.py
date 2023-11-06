@@ -48,8 +48,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
@@ -70,20 +70,23 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_cls = 0
     corrl_reg = 0
     # Calculate total and desired number of batches
-    total_batches = len(loader)
+    total_data = len(loader)*loader.batch_size
     # i is the percentage of train data
     #print("Data Percentage: "+str(i))
-    desired_batches = math.ceil(i/10 * total_batches)
+    desired_data = math.ceil(i/10 * total_data)
     #print("desired batches: "+ str(desired_batches))
     #print("total batches: " + str(total_batches))
     # Select desired number of batches according to the percentage of train data
-    subset_loader = DataLoader(Subset(loader.dataset, range(desired_batches)), 
+    subset_loader = DataLoader(Subset(loader.dataset, range(desired_data)), 
                                batch_size=loader.batch_size)
 
     for data in subset_loader:
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
+
+        if x.shape[0] != loader.batch_size:
+            continue
         #print(label)
 	    # VAE + Exhibition
         optimizer.zero_grad()

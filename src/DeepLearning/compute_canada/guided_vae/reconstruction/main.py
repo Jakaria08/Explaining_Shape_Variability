@@ -42,7 +42,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-5)
 parser.add_argument('--weight_decay_c', type=float, default=1e-4)
 
 # training hyperparameters
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--epochs', type=int, default=200)
 parser.add_argument('--beta', type=float, default=0)
 parser.add_argument('--wcls', type=int, default=1)
@@ -146,7 +146,7 @@ up_transform_list = [
 
 # define model and optimizer and set parameters
 args.epochs = 300
-args.batch_size = 28
+args.batch_size = 16
 args.wcls = 84
 args.beta = 0.001613242314355074
 args.lr = 0.0004275659727086532
@@ -241,9 +241,9 @@ for j in range(10, 0, -1):
     df1 = pd.DataFrame(angles.cpu().numpy())
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/thick.csv"
+    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/latent_codes.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/angles.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/thick.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
@@ -253,13 +253,13 @@ for j in range(10, 0, -1):
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, j)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/test.txt'
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
         print("Data Percentage: "+str(j))
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{j}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr_cont/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
