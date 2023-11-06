@@ -48,8 +48,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
@@ -196,7 +196,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             z = z[:, torch.cat((torch.tensor([0]), torch.tensor(range(2, z.shape[1]))), dim=0)]
             cls2_2 = model_c_2(z)
-            label1 = torch.empty_like(label[:, :, 1]).fill_(0.5)
+            label1 = torch.empty_like(label[:, :, 2]).fill_(0.5)
             loss = F.mse_loss(cls2_2, label1, reduction='mean')
             cls2_error_2 += loss.item()
             loss *= w_cls
@@ -204,8 +204,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer.step()
     #print(corrl_cls)
     #print(corrl_reg)
-    print(snnl)
-    print(snnl_reg)
+    #print(snnl)
+    #print(snnl_reg)
     return total_loss / len(loader)
 
 

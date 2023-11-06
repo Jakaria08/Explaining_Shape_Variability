@@ -49,8 +49,8 @@ parser.add_argument('--wcls', type=int, default=1)
 
 # others
 parser.add_argument('--correlation_loss', type=bool, default=False)
-parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
-parser.add_argument('--guided', type=bool, default=False)
+parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
+parser.add_argument('--guided', type=bool, default=True)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
 
@@ -147,21 +147,21 @@ up_transform_list = [
 # define model and optimizer and set parameters
 args.epochs = 300
 args.batch_size = 16
-args.wcls = 63
-args.beta = 0.006145902872613284
-args.lr = 0.00014669194595000342
-args.lr_decay = 0.96
-args.decay_step = 13
+args.wcls = 8
+args.beta = 0.05267669943387056
+args.lr = 0.0009280828833567735
+args.lr_decay = 0.8999999999999999
+args.decay_step = 38
 args.latent_channels = 12
-args.temperature = 61
+args.temperature = 1
 
-sequence_length = 12
+sequence_length = 33
 args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-dilation = 2
+dilation = 1
 args.dilation = [dilation, dilation, dilation, dilation]
 
-out_channel = 32
+out_channel = 16
 args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
 print(args)    
 
@@ -180,8 +180,8 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                             args.decay_step,
                                             gamma=args.lr_decay)
 
-args.guided = False
-args.guided_contrastive_loss = True
+args.guided = True
+args.guided_contrastive_loss = False
 args.correlation_loss = False
 
 for j in range(10, 0, -1):
@@ -242,9 +242,9 @@ for j in range(10, 0, -1):
     df1 = pd.DataFrame(angles.cpu().numpy())
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/thick.csv"
+    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/latent_codes.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/angles.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/thick.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
@@ -254,12 +254,12 @@ for j in range(10, 0, -1):
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, j)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/test.txt'
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/{j}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
