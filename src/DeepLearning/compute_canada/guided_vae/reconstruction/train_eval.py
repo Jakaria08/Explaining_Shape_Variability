@@ -109,27 +109,27 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             #print(loss_snn.item())
             snnl += loss_snn.item()
 
-            #Regression Loss
-            SNN_Loss_Reg = SNNRegLoss(temp)
-            loss_snn_reg = SNN_Loss_Reg(z[:,1], label[:, :, 2])
-            loss += loss_snn_reg * w_cls
+            #Regression Loss, commented out for correlation-contrastive loss
+            #SNN_Loss_Reg = SNNRegLoss(temp)
+            #loss_snn_reg = SNN_Loss_Reg(z[:,1], label[:, :, 2])
+            #loss += loss_snn_reg * w_cls
             #print(loss_snn.item())
-            snnl_reg += loss_snn_reg.item()
+            #snnl_reg += loss_snn_reg.item()
 
         if correlation_loss:
-            corr_loss_cls = ClsCorrelationLoss()
+            #corr_loss_cls = ClsCorrelationLoss()
             corr_loss_reg = RegCorrelationLoss()
             z = model.reparameterize(mu, log_var)
             #print(z.shape)
             #print(label[:, :, 0].shape)
-            #cls
-            loss_corr_cls = corr_loss_cls(z, label[:, :, 0])
-            loss += loss_corr_cls * w_cls
+            #cls, comment out for correlation-contrastive loss
+            #loss_corr_cls = corr_loss_cls(z, label[:, :, 0])
+            #loss += loss_corr_cls * w_cls
             #reg
             loss_corr_reg = corr_loss_reg(z, label[:, :, 2])
             loss += loss_corr_reg * w_cls
             #print(corr_loss.item())
-            corrl_cls += loss_corr_cls.item()
+            #corrl_cls += loss_corr_cls.item()
             corrl_reg += loss_corr_reg.item()
 
         loss.backward()        
@@ -198,10 +198,11 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             loss *= w_cls
             loss.backward()
             optimizer.step()
-    print(corrl_cls)
-    print(corrl_reg)
-    #print(snnl)
+    
+    print(snnl)
     #print(snnl_reg)
+    print(corrl_reg)
+    #print(corrl_cls)
     return total_loss / len(loader)
 
 
