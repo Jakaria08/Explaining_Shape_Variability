@@ -48,8 +48,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
@@ -202,10 +202,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             loss *= w_cls
             loss.backward()
             optimizer.step()
-    print(corrl_cls)
-    print(corrl_reg)
-    #print(snnl)
-    #print(snnl_reg)
+    #print(corrl_cls)
+    #print(corrl_reg)
+    print(snnl)
+    print(snnl_reg)
     return total_loss / len(loader)
 
 
