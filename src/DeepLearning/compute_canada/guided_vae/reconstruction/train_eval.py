@@ -84,8 +84,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
-        print(x.shape)
-        print(x.shape[0])
+        #print(x.shape)
+        #print(x.shape[0])
         if x.shape[0] != loader.batch_size:
             continue
         #print(label)
