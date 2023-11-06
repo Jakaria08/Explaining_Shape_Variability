@@ -89,6 +89,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
         optimizer.zero_grad()
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
         loss = loss_function(x, out, mu, log_var, beta)      
+        z = model.reparameterize(mu, log_var)
         loss_w = w_cls*loss_Wasserstein(z) 
         loss += loss_w
         w_loss += loss_w.item()
