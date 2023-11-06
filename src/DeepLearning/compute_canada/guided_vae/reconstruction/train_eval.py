@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
-from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss
+from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -12,7 +12,7 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp):
+        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp, delta):
     
     model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
@@ -24,7 +24,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp)
+        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta)
         t_duration = time.time() - t
         test_loss = test(model, test_loader, device, beta)
         scheduler.step()
@@ -41,11 +41,11 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp):
+def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta):
     model.train()
     model_c.train()
     model_c_2.train()
-
+    loss_Wasserstein = WassersteinLoss(delta)
     total_loss = 0
     recon_loss = 0
     reg_loss = 0
@@ -59,6 +59,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     snnl_reg = 0
     corrl_cls = 0
     corrl_reg = 0
+    w_loss = 0
 
     for data in loader:
 	    # Load Data
@@ -68,7 +69,10 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 	    # VAE + Exhibition
         optimizer.zero_grad()
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
-        loss = loss_function(x, out, mu, log_var, beta)       
+        loss = loss_function(x, out, mu, log_var, beta)      
+        loss_w = w_cls*loss_Wasserstein(z) 
+        loss += loss_w
+        w_loss += loss_w.item()
         if guided:
             loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='mean')
             loss += loss_cls * w_cls
@@ -173,7 +177,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             z = z[:, torch.cat((torch.tensor([0]), torch.tensor(range(2, z.shape[1]))), dim=0)]
             cls2_2 = model_c_2(z)
-            label1 = torch.empty_like(label[:, :, 1]).fill_(0.5)
+            label1 = torch.empty_like(label[:, :, 2]).fill_(0.5)
             loss = F.mse_loss(cls2_2, label1, reduction='mean')
             cls2_error_2 += loss.item()
             loss *= w_cls
@@ -183,6 +187,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     #print(corrl_reg)
     print(snnl)
     print(snnl_reg)
+    print(w_loss)
     return total_loss / len(loader)
 
 
