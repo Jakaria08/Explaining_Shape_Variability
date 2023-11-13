@@ -225,7 +225,7 @@ for j in range(10, 0, -1):
                                                     sap_score_train, pcc_thick_train, sap_score_thick_train, euclidean_distance_train, j)
 
 
-    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/train.txt'
+    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive/train.txt'
     with open(out_error_fp_train, 'a') as log_file_train:
         log_file_train.write('{:s}\n'.format(message_train))
 
