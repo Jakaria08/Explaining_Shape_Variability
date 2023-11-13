@@ -190,7 +190,8 @@ for j in range(10, 0, -1):
         args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
         j)
 
-    # test on train set
+    # Test metric on train set
+    euclidean_distance_train = eval_error(model, train_loader, device, meshdata, args.out_dir)
     angles_train = []
     thick_train = []
     latent_codes_train = []
