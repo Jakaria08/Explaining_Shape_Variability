@@ -190,6 +190,47 @@ for j in range(10, 0, -1):
         args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
         j)
 
+    # test on train set
+    angles_train = []
+    thick_train = []
+    latent_codes_train = []
+    re_pre_train = []
+    with torch.no_grad():
+        for i_train, data_train in enumerate(train_loader):
+            x_train = data_train.x.to(device)
+            y_train = data_train.y.to(device)
+            recon_train, mu_train, log_var_train, re_train, re_2_train = model(x_train)
+            z_train = model.reparameterize(mu_train, log_var_train)
+            latent_codes_train.append(z_train)
+            angles_train.append(y_train[:, :, 0])
+            thick_train.append(y_train[:, :, 2]) 
+            re_pre_train.append(re_train)
+    latent_codes_train = torch.concat(latent_codes_train)
+    angles_train = torch.concat(angles_train).view(-1,1)
+    thick_train = torch.concat(thick_train).view(-1,1)
+    re_pre_train = torch.concat(re_pre_train).view(-1,1)
+    latent_codes_train[torch.isnan(latent_codes_train) | torch.isinf(latent_codes_train)] = 0
+
+    # Pearson Correlation Coefficient
+    re_pre_train = (re_pre_train.cpu().numpy() >= 0.5).astype(int)
+    pcc_train = accuracy_score(angles_train.view(-1).cpu().numpy(), re_pre_train)
+    pcc_r_train = point_biserial_correlation(latent_codes_train.cpu().numpy(), angles_train.view(-1).cpu().numpy())
+    pcc_thick_train = stats.pearsonr(thick_train.view(-1).cpu().numpy(), latent_codes_train[:,1].cpu().numpy())[0]
+    # SAP Score
+    sap_score_train = sap(factors=angles_train.cpu().numpy(), codes=latent_codes_train.cpu().numpy(), continuous_factors=False, regression=False)
+    sap_score_thick_train = sap(factors=thick_train.cpu().numpy(), codes=latent_codes_train.cpu().numpy(), continuous_factors=True, regression=True)
+
+    message_train = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc_train, pcc_r_train,
+                                                    sap_score_train, pcc_thick_train, sap_score_thick_train, euclidean_distance_train, j)
+
+
+    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/train.txt'
+    with open(out_error_fp_train, 'a') as log_file_train:
+        log_file_train.write('{:s}\n'.format(message_train))
+
+
+    ######################################################################
+    # test on test set
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
     angles = []
