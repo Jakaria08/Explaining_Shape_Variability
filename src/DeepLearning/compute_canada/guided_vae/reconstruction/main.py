@@ -145,7 +145,7 @@ up_transform_list = [
 ]
 
 # define model and optimizer and set parameters
-args.epochs = 3
+args.epochs = 200
 args.batch_size = 16
 args.wcls = 8
 args.beta = 0.05267669943387056

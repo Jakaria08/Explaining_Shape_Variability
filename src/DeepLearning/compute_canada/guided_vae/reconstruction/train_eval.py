@@ -167,7 +167,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             cls2 = model_c(z)
             label1 = torch.empty_like(label[:, :, 0]).fill_(0.5)
             loss = F.binary_cross_entropy(cls2, label1, reduction='mean')
-            cls2_error += loss.item()
+            #cls2_error += loss.item()
             loss *= w_cls
             loss.backward()
             optimizer.step()
@@ -205,7 +205,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             cls2_2 = model_c_2(z)
             label1 = torch.empty_like(label[:, :, 2]).fill_(0.5)
             loss = F.mse_loss(cls2_2, label1, reduction='mean')
-            cls2_error_2 += loss.item()
+            #cls2_error_2 += loss.item()
             loss *= w_cls
             loss.backward()
             optimizer.step()
