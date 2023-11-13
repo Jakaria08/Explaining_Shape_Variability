@@ -124,17 +124,26 @@ class ClsCorrelationLoss(nn.Module):
         mean_z_0 = torch.mean(z_0[:, 0])
 
         # Multiplier
-        mlt = math.sqrt((n_1 * n_0) / (n**2))
+        if n_1 == 0 or n_0 == 0:
+            mlt = 1
+        else:
+            mlt = math.sqrt((n_1 * n_0) / (n**2))
 
         # Calculate point biserial correlation
-        r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt
+        if torch.std(z_batch[:, 0]) == 0:
+            r_pb = 0
+        else:
+            r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt
 
         # Calculate correlation of other dimensions with y
         other_dim_corrs = torch.zeros(z_batch.shape[1])
         #print(other_dim_corrs.shape)
         
         for i in range(1, z_batch.shape[1]):
-            other_dim_corrs[i-1] = (torch.mean(z_1[:, i]) - torch.mean(z_0[:, i])) / torch.std(z_batch[:, i]) * mlt
+            if torch.std(z_batch[:, i]) == 0:
+                other_dim_corrs[i-1] = 0
+            else:
+                other_dim_corrs[i-1] = (torch.mean(z_1[:, i]) - torch.mean(z_0[:, i])) / torch.std(z_batch[:, i]) * mlt
 
         # Loss components
         ncc_loss = 1 - torch.abs(r_pb)  # Minimize correlation
@@ -171,7 +180,10 @@ class RegCorrelationLoss(nn.Module):
         denominator = torch.sqrt(sum_squared_diff_z * sum_squared_diff_y)
         
         # Calculate the Pearson correlation coefficient
-        r_p = cross_product / denominator
+        if denominator == 0:
+            r_p = 0
+        else:
+            r_p = cross_product / denominator
 
         # Calculate correlation of other dimensions with y
         other_dim_corrs = torch.zeros(z_batch.shape[1])
@@ -179,13 +191,19 @@ class RegCorrelationLoss(nn.Module):
         mean_z, mean_y = torch.mean(z_batch[:, 0]), torch.mean(y_batch)
         diff_z, diff_y = z_batch[:, 0] - mean_z, y_batch - mean_y
         sum_squared_diff_z, sum_squared_diff_y = torch.sum(diff_z ** 2), torch.sum(diff_y ** 2)
-        other_dim_corrs[0] = torch.sum(diff_z * diff_y) / torch.sqrt(sum_squared_diff_z * sum_squared_diff_y)
+        if sum_squared_diff_z == 0 or sum_squared_diff_y == 0:
+            other_dim_corrs[0] = 0
+        else:
+            other_dim_corrs[0] = torch.sum(diff_z * diff_y) / torch.sqrt(sum_squared_diff_z * sum_squared_diff_y)
         #remaining element
         for i in range(2, z_batch.shape[1]):
             mean_z, mean_y = torch.mean(z_batch[:, i]), torch.mean(y_batch)
             diff_z, diff_y = z_batch[:, i] - mean_z, y_batch - mean_y
             sum_squared_diff_z, sum_squared_diff_y = torch.sum(diff_z ** 2), torch.sum(diff_y ** 2)
-            other_dim_corrs[i-1] = torch.sum(diff_z * diff_y) / torch.sqrt(sum_squared_diff_z * sum_squared_diff_y)
+            if sum_squared_diff_z == 0 or sum_squared_diff_y == 0:
+                other_dim_corrs[i-1] = 0
+            else:
+                other_dim_corrs[i-1] = torch.sum(diff_z * diff_y) / torch.sqrt(sum_squared_diff_z * sum_squared_diff_y)
 
         # Loss components
         ncc_loss = 1 - torch.abs(r_p)  # Minimize correlation
