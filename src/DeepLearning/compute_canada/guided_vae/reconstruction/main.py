@@ -189,6 +189,49 @@ for j in range(10, 0, -1):
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, 
         args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
         j)
+    
+        # Test metric on train set
+    euclidean_distance_train = eval_error(model, train_loader, device, meshdata, args.out_dir)
+
+    angles_train = []
+    thick_train = []
+    latent_codes_train = []
+    re_pre_train = []
+    with torch.no_grad():
+        for i_train, data_train in enumerate(train_loader):
+            x_train = data_train.x.to(device)
+            y_train = data_train.y.to(device)
+            recon_train, mu_train, log_var_train, re_train, re_2_train = model(x_train)
+            z_train = model.reparameterize(mu_train, log_var_train)
+            latent_codes_train.append(z_train)
+            angles_train.append(y_train[:, :, 0])
+            thick_train.append(y_train[:, :, 2]) 
+            re_pre_train.append(re_train)
+    latent_codes_train = torch.concat(latent_codes_train)
+    angles_train = torch.concat(angles_train).view(-1,1)
+    thick_train = torch.concat(thick_train).view(-1,1)
+    re_pre_train = torch.concat(re_pre_train).view(-1,1)
+    latent_codes_train[torch.isnan(latent_codes_train) | torch.isinf(latent_codes_train)] = 0
+
+    # Pearson Correlation Coefficient
+    re_pre_train = (re_pre_train.cpu().numpy() >= 0.5).astype(int)
+    pcc_train = accuracy_score(angles_train.view(-1).cpu().numpy(), re_pre_train)
+    pcc_r_train = point_biserial_correlation(latent_codes_train.cpu().numpy(), angles_train.view(-1).cpu().numpy())
+    pcc_thick_train = stats.pearsonr(thick_train.view(-1).cpu().numpy(), latent_codes_train[:,1].cpu().numpy())[0]
+    # SAP Score
+    sap_score_train = sap(factors=angles_train.cpu().numpy(), codes=latent_codes_train.cpu().numpy(), continuous_factors=False, regression=False)
+    sap_score_thick_train = sap(factors=thick_train.cpu().numpy(), codes=latent_codes_train.cpu().numpy(), continuous_factors=True, regression=True)
+
+    message_train = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc_train, pcc_r_train,
+                                                    sap_score_train, pcc_thick_train, sap_score_thick_train, euclidean_distance_train, j)
+
+
+    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/train.txt'
+    with open(out_error_fp_train, 'a') as log_file_train:
+        log_file_train.write('{:s}\n'.format(message_train))
+
+    #######################################################################################
+    # Test metric on test set
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -242,9 +285,9 @@ for j in range(10, 0, -1):
     df1 = pd.DataFrame(angles.cpu().numpy())
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/thick.csv"
+    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/latent_codes.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/angles.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/thick.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
@@ -254,12 +297,12 @@ for j in range(10, 0, -1):
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, j)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/test.txt'
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/{j}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 

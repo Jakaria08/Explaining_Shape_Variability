@@ -7,6 +7,7 @@ from reconstruction import Regressor, Classifier
 from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss
 from torch.utils.data import Subset
 from utils import DataLoader
+import random
 
 def loss_function(original, reconstruction, mu, log_var, beta):
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
@@ -48,8 +49,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_corr/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
@@ -76,8 +77,14 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     desired_data = math.ceil(i/10 * total_data)
     #print("desired batches: "+ str(desired_batches))
     #print("total batches: " + str(total_batches))
+     # Shuffle the indices of the entire dataset
+    shuffled_indices = list(range(total_data))
+    random.shuffle(shuffled_indices)
+
+    # Use the first 'desired_data' indices to create a subset
+    subset_indices = shuffled_indices[:desired_data]
     # Select desired number of batches according to the percentage of train data
-    subset_loader = DataLoader(Subset(loader.dataset, range(desired_data)), 
+    subset_loader = DataLoader(Subset(loader.dataset, subset_indices), 
                                batch_size=loader.batch_size)
 
     for data in subset_loader:
