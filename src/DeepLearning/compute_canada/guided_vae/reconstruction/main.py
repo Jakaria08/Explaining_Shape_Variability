@@ -193,7 +193,7 @@ random.shuffle(shuffled_indices)
 
 
 for j in range(10, 0, -1):
-    desired_data = math.ceil(i/10 * total_data)
+    desired_data = math.ceil(j/10 * total_data)
     # Use the first 'desired_data' indices to create a subset
     subset_indices = shuffled_indices[:desired_data]
     # Select desired number of batches according to the percentage of train data
