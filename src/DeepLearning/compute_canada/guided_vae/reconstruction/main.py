@@ -17,6 +17,8 @@ from contextlib import redirect_stdout
 import shutil
 import random
 from sklearn.metrics import accuracy_score
+from torch.utils.data import Subset
+import math
 
 parser = argparse.ArgumentParser(description='mesh autoencoder')
 parser.add_argument('--exp_name', type=str, default='interpolation_exp')
@@ -184,7 +186,20 @@ args.guided = False
 args.guided_contrastive_loss = False
 args.correlation_loss = True
 
+# Calculate total and desired number of batches
+total_data = len(train_loader)*train_loader.batch_size
+shuffled_indices = list(range(total_data))
+random.shuffle(shuffled_indices)
+
+
 for j in range(10, 0, -1):
+    desired_data = math.ceil(i/10 * total_data)
+    # Use the first 'desired_data' indices to create a subset
+    subset_indices = shuffled_indices[:desired_data]
+    # Select desired number of batches according to the percentage of train data
+    subset_loader = DataLoader(Subset(train_loader.dataset, subset_indices), 
+                            batch_size=train_loader.batch_size)
+    
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, 
         args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 

@@ -70,24 +70,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     snnl_reg = 0
     corrl_cls = 0
     corrl_reg = 0
-    # Calculate total and desired number of batches
-    total_data = len(loader)*loader.batch_size
-    # i is the percentage of train data
-    #print("Data Percentage: "+str(i))
-    desired_data = math.ceil(i/10 * total_data)
-    #print("desired batches: "+ str(desired_batches))
-    #print("total batches: " + str(total_batches))
-     # Shuffle the indices of the entire dataset
-    shuffled_indices = list(range(total_data))
-    random.shuffle(shuffled_indices)
 
-    # Use the first 'desired_data' indices to create a subset
-    subset_indices = shuffled_indices[:desired_data]
-    # Select desired number of batches according to the percentage of train data
-    subset_loader = DataLoader(Subset(loader.dataset, subset_indices), 
-                               batch_size=loader.batch_size)
-
-    for data in subset_loader:
+    for data in loader:
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)
