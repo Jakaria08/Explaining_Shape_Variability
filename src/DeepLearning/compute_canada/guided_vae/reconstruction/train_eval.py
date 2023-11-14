@@ -42,8 +42,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_ws/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_ws/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_inhib/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_inhib/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta):
     model.train()
@@ -96,9 +96,9 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
         loss = loss_function(x, out, mu, log_var, beta)      
         z = model.reparameterize(mu, log_var)
-        loss_w = w_cls*loss_Wasserstein(z) 
-        loss += loss_w
-        w_loss += loss_w.item()
+        #loss_w = w_cls*loss_Wasserstein(z) 
+        #loss += loss_w
+        #w_loss += loss_w.item()
         if guided:
             loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='mean')
             loss += loss_cls * w_cls
@@ -114,14 +114,14 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             #print(z.shape)
             #print(label[:, :, 0].shape)
-            loss_snn = SNN_Loss(z[:,0], label[:, :, 0])
+            loss_snn = SNN_Loss(z, label[:, :, 0])
             loss += loss_snn * w_cls
             #print(loss_snn.item())
             snnl += loss_snn.item()
 
             #Regression Loss
             SNN_Loss_Reg = SNNRegLoss(temp)
-            loss_snn_reg = SNN_Loss_Reg(z[:,1], label[:, :, 2])
+            loss_snn_reg = SNN_Loss_Reg(z, label[:, :, 2])
             loss += loss_snn_reg * w_cls
             #print(loss_snn.item())
             snnl_reg += loss_snn_reg.item()
@@ -213,7 +213,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     #print(corrl_reg)
     print(snnl)
     print(snnl_reg)
-    print(w_loss)
+    #print(w_loss)
     return total_loss / len(loader)
 
 
