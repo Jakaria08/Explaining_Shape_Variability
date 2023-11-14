@@ -225,7 +225,10 @@ class SNNLoss(nn.Module):
             x_expanded = x[:,i].unsqueeze(1)
             squared_distances = (x_expanded - x_expanded.t()) ** 2
             exp_distances = torch.exp(-(squared_distances / self.T))
-            exp_distances_all = exp_distances_all + (exp_distances * (1 - torch.eye(b, device='cuda:1')))
+            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * same_class_mask
+            exp_distances_all = exp_distances_all + exp_distances
+
         
         denominator1 = exp_distances_all/float(x.shape[1]-1)
         #print(denominator)
@@ -265,16 +268,18 @@ class SNNRegLoss(nn.Module):
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
         exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
-        denominator = denominator + exp_distances
+        exp_distances = exp_distances * same_class_mask
+        exp_distances_all = exp_distances_all + exp_distances
         for i in range(2, x.shape[1]):
             x_expanded = x[:,i].unsqueeze(1)
             squared_distances = (x_expanded - x_expanded.t()) ** 2
             exp_distances = torch.exp(-(squared_distances / self.T))
             exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
-            denominator_all = denominator_all + exp_distances
+            exp_distances = exp_distances * same_class_mask
+            exp_distances_all = exp_distances_all + exp_distances
 
         #print(denominator)
-        denominator1 = denominator/float(x.shape[1]-1)
+        denominator1 = exp_distances_all/float(x.shape[1]-1)
 
         lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (0.5*denominator.sum(dim=1)) + (0.5*denominator1.sum(dim=1))))).mean()
 
