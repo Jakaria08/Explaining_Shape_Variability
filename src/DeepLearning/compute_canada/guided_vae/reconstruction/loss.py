@@ -198,10 +198,12 @@ class RegCorrelationLoss(nn.Module):
     
 # SNNL loss modified fast
 class SNNLoss(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, lamda1, lamda2):
         super(SNNLoss, self).__init__()
         self.T = T
         self.STABILITY_EPS = 0.00001
+        self.lamda1 = lamda1
+        self.lamda2 = lamda2
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size
