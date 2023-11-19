@@ -56,6 +56,7 @@ parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
 parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
+parser.add_argument('--threshold', type=float, default=0.1)
 
 args = parser.parse_args()
 
@@ -149,6 +150,7 @@ up_transform_list = [
 
 def objective(trial):
 
+    args.threshold = trial.suggest_float('threshold', 0.02, 0.15, step=0.005)
     args.lambda1 = trial.suggest_float('lambda1', 0.05, 0.95, step=0.05)
     args.lambda2 = 1.0 - args.lambda1 
     args.epochs = 400
@@ -192,7 +194,7 @@ def objective(trial):
     args.correlation_loss = False
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.lambda1, args.lambda2)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.lambda1, args.lambda2, args.threshold)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 

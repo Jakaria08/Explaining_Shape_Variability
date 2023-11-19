@@ -198,9 +198,11 @@ class RegCorrelationLoss(nn.Module):
     
 # SNNL loss modified fast
 class SNNLoss(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, lamda1, lamda2):
         super(SNNLoss, self).__init__()
         self.T = T
+        self.lamda1 = lamda1
+        self.lamda2 = lamda2
         self.STABILITY_EPS = 0.00001
 
     def forward(self, x, y):
@@ -233,17 +235,19 @@ class SNNLoss(nn.Module):
         denominator1 = exp_distances_all/float(x.shape[1]-1)
         #print(denominator)
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (0.5*denominator.sum(dim=1)) + (0.5*denominator1.sum(dim=1))))).mean()
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) + (self.lamda2*denominator1.sum(dim=1))))).mean()
 
         return lsn_loss
     
 # SNNL loss reg modified fast
 class SNNRegLoss(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, lamda1, lamda2, threshold):
         super(SNNRegLoss, self).__init__()
         self.T = T
+        self.lamda1 = lamda1
+        self.lamda2 = lamda2
         self.STABILITY_EPS = 0.00001
-        self.threshold = 0.025001
+        self.threshold = threshold
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size
@@ -281,7 +285,7 @@ class SNNRegLoss(nn.Module):
         #print(denominator)
         denominator1 = exp_distances_all/float(x.shape[1]-1)
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (0.5*denominator.sum(dim=1)) + (0.5*denominator1.sum(dim=1))))).mean()
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) + (self.lamda2*denominator1.sum(dim=1))))).mean()
 
         return lsn_loss
 

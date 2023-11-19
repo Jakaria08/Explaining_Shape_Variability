@@ -16,8 +16,8 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp, delta, lambda1, lambda2):
-    
+        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp, delta, lambda1, lambda2, threshold):
+
     model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
 
@@ -28,7 +28,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta, lambda1, lambda2)
+        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta, lambda1, lambda2, threshold)
         t_duration = time.time() - t
         test_loss = test(model, test_loader, device, beta)
         scheduler.step()
@@ -45,7 +45,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_base/model_state_dict.pt")
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_base/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta, lambda1, lambda2):
+def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta, lambda1, lambda2, threshold):
     model.train()
     model_c.train()
     model_c_2.train()
@@ -120,7 +120,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             snnl += loss_snn.item()
 
             #Regression Loss
-            SNN_Loss_Reg = SNNRegLoss(temp, lambda1, lambda2)
+            SNN_Loss_Reg = SNNRegLoss(temp, lambda1, lambda2, threshold)
             loss_snn_reg = SNN_Loss_Reg(z, label[:, :, 2])
             loss += loss_snn_reg * w_cls
             #print(loss_snn.item())
