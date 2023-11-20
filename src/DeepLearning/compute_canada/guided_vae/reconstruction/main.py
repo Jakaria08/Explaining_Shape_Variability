@@ -150,27 +150,27 @@ up_transform_list = [
 
 def objective(trial):
 
-    args.threshold = 0.025
+    args.threshold = trial.suggest_float('threshold', 0.015, 0.1, step=0.005)
     args.lambda1 = trial.suggest_float('lambda1', 0.05, 0.95, step=0.05)
     args.lambda2 = 1.0 - args.lambda1 
-    args.epochs = 400
-    args.batch_size = 4
-    args.wcls = 34
-    args.beta = 0.21125819643916915
-    args.lr = 0.00019176245642204008
-    args.lr_decay = 0.72
-    args.delta = 0.30000000000000004
-    args.decay_step = 14
-    args.latent_channels = 16
-    args.temperature = 81
+    args.epochs = trial.suggest_int("epochs", 100, 400, step=100)
+    args.batch_size = trial.suggest_int("batch_size", 4, 32, 4)
+    args.wcls = trial.suggest_int("w_cls", 1, 100)
+    args.beta = trial.suggest_float("beta", 0.001, 0.3, log=True)
+    args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
+    args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
+    args.delta = trial.suggest_float("delta", 0.1, 0.9, step=0.1)
+    args.decay_step = trial.suggest_int("decay_step", 1, 50)
+    args.latent_channels = trial.suggest_int("latent_channels", 12, 16, step=4)
+    args.temperature = trial.suggest_int("temperature", 1, 200, step=20)
 
-    sequence_length = 30
+    sequence_length = trial.suggest_int("sequence_length", 5, 50)
     args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-    dilation = 2
+    dilation = trial.suggest_int("dilation", 1, 2)
     args.dilation = [dilation, dilation, dilation, dilation]
     
-    out_channel = 24
+    out_channel = trial.suggest_int("out_channel", 8, 32, 8)
     args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
     print(args)    
 
@@ -294,4 +294,4 @@ class LogAfterEachTrial:
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-study.optimize(objective, n_trials=50, callbacks=[log_trials])
+study.optimize(objective, n_trials=400, callbacks=[log_trials])
