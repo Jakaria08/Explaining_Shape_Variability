@@ -117,7 +117,7 @@ test_loader = DataLoader(meshdata.test_dataset, batch_size=args.batch_size)
 total_data = len(train_loader)*train_loader.batch_size
 # i is the percentage of train data
 #print("Data Percentage: "+str(i))
-desired_data = math.ceil(0.1 * total_data)
+desired_data = math.ceil(1.0 * total_data)
 #print("desired batches: "+ str(desired_batches))
 #print("total batches: " + str(total_batches))
 shuffled_indices = list(range(total_data))
@@ -169,7 +169,7 @@ up_transform_list = [
 ]
 
 def objective(trial):
-
+    '''
     args.threshold = trial.suggest_float('threshold', 0.015, 0.1, step=0.005)
     args.lambda1 = trial.suggest_float('lambda1', 0.05, 0.95, step=0.05)
     args.lambda2 = 1.0 - args.lambda1 
@@ -191,6 +191,29 @@ def objective(trial):
     args.dilation = [dilation, dilation, dilation, dilation]
     
     out_channel = trial.suggest_int("out_channel", 8, 32, 8)
+    args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
+    '''
+    args.threshold = 0.025
+    args.lambda1 = 0.5
+    args.lambda2 = 1.0 - args.lambda1 
+    args.epochs = 100
+    args.batch_size = 4
+    args.wcls = 34
+    args.beta = 0.21125819643916915
+    args.lr = 0.00019176245642204008
+    args.lr_decay = 0.72
+    args.delta = 0.30000000000000004
+    args.decay_step = 14
+    args.latent_channels = 16
+    args.temperature = 81
+
+    sequence_length = 30
+    args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
+
+    dilation = 2
+    args.dilation = [dilation, dilation, dilation, dilation]
+    
+    out_channel = 24
     args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
     print(args)    
 
