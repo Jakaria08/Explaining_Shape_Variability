@@ -247,7 +247,7 @@ class SNNRegLoss(nn.Module):
         self.lamda1 = lamda1
         self.lamda2 = lamda2
         self.STABILITY_EPS = 0.00001
-        self.threshold = threshold
+        self.threshold = .025
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size
