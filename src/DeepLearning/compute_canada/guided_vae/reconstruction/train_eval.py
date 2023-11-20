@@ -26,6 +26,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     train_losses, test_losses = [], []
 
+
     for epoch in range(1, epochs + 1):
         t = time.time()
         train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta, lambda1, lambda2, threshold)
@@ -65,25 +66,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_reg = 0
     w_loss = 0
 
-    # Calculate total and desired number of data
-    # this is for taking small subset of data from big dataset
-    total_data = len(loader)*loader.batch_size
-    # i is the percentage of train data
-    #print("Data Percentage: "+str(i))
-    desired_data = math.ceil(0.1 * total_data)
-    #print("desired batches: "+ str(desired_batches))
-    #print("total batches: " + str(total_batches))
-    shuffled_indices = list(range(total_data))
-    random.shuffle(shuffled_indices)
 
-    # Use the first 'desired_data' indices to create a subset
-    subset_indices = shuffled_indices[:desired_data]
-    # Select desired number of batches according to the percentage of train data
-    subset_loader = DataLoader(Subset(loader.dataset, subset_indices), 
-                               batch_size=loader.batch_size)
-
-
-    for data in subset_loader:
+    for data in loader:
 	    # Load Data
         x = data.x.to(device)
         label = data.y.to(device)

@@ -17,6 +17,8 @@ from contextlib import redirect_stdout
 import shutil
 import random
 from sklearn.metrics import accuracy_score
+from torch.utils.data import Subset
+import math
 
 parser = argparse.ArgumentParser(description='mesh autoencoder')
 parser.add_argument('--exp_name', type=str, default='interpolation_exp')
@@ -109,6 +111,24 @@ train_loader = DataLoader(meshdata.train_dataset, batch_size=args.batch_size)
 val_loader = DataLoader(meshdata.val_dataset, batch_size=args.batch_size)
 test_loader = DataLoader(meshdata.test_dataset, batch_size=args.batch_size)
 
+
+# Calculate total and desired number of data
+# this is for taking small subset of data from big dataset
+total_data = len(train_loader)*train_loader.batch_size
+# i is the percentage of train data
+#print("Data Percentage: "+str(i))
+desired_data = math.ceil(0.1 * total_data)
+#print("desired batches: "+ str(desired_batches))
+#print("total batches: " + str(total_batches))
+shuffled_indices = list(range(total_data))
+random.shuffle(shuffled_indices)
+
+# Use the first 'desired_data' indices to create a subset
+subset_indices = shuffled_indices[:desired_data]
+# Select desired number of batches according to the percentage of train data
+subset_loader = DataLoader(Subset(train_loader.dataset, subset_indices), 
+                            batch_size=train_loader.batch_size)
+
 # generate/load transform matrices
 transform_fp = osp.join(args.data_fp, 'transform', 'transform.pkl')
 if not osp.exists(transform_fp):
@@ -193,7 +213,7 @@ def objective(trial):
     args.guided_contrastive_loss = True
     args.correlation_loss = False
 
-    run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
+    run(model, subset_loader, val_loader, args.epochs, optimizer, scheduler,
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.lambda1, args.lambda2, args.threshold)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
