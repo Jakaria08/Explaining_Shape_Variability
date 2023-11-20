@@ -244,7 +244,7 @@ class SNNLoss(nn.Module):
         class_counts = class_counts.float().to('cuda:1') 
 
         lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
-                                                                    + (self.lamda2*denominator1.sum(dim=1)))) / class_counts[y]).mean()
+                                                                    + (self.lamda2*denominator1.sum(dim=1)))) / class_counts[y.long()]).mean()
 
 
         return lsn_loss
