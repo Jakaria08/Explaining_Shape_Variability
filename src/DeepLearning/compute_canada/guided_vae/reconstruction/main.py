@@ -150,7 +150,7 @@ up_transform_list = [
 
 def objective(trial):
 
-    args.threshold = trial.suggest_float('threshold', 0.02, 0.15, step=0.005)
+    args.threshold = 0.025
     args.lambda1 = trial.suggest_float('lambda1', 0.05, 0.95, step=0.05)
     args.lambda2 = 1.0 - args.lambda1 
     args.epochs = 400
