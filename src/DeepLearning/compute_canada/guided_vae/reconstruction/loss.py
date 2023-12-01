@@ -243,8 +243,8 @@ class SNNLoss(nn.Module):
         class_counts = torch.bincount(y.long())
         class_counts = class_counts.float().to('cuda:1') 
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
-                                                                    + (self.lamda2*denominator1.sum(dim=1)))) / class_counts[y.long()]).mean()
+        lsn_loss = ((-torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
+                                                                    + (self.lamda2*denominator1.sum(dim=1)))))) / class_counts[y.long()]).mean()
         #print(class_counts[y.long()])
 
         return lsn_loss
@@ -302,8 +302,8 @@ class SNNRegLoss(nn.Module):
         class_counts = torch.sum(same_class_mask, dim=1).float().to('cuda:1')
         #print(class_counts)
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
-                                                                            + (self.lamda2*denominator1.sum(dim=1))))/class_counts).mean()
+        lsn_loss = ((-torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
+                                                                            + (self.lamda2*denominator1.sum(dim=1))))))/class_counts).mean()
 
         return lsn_loss
 
