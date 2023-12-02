@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
-from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss
+from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss, AttributeLoss
 from utils import DataLoader
 from torch.utils.data import Subset
 import random
@@ -64,7 +64,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_cls = 0
     corrl_reg = 0
     w_loss = 0
-    loss_attribute = 0
+    loss_attribute_cls = 0
+    loss_attribute_reg = 0
 
     # Calculate total and desired number of data
     # this is for taking small subset of data from big dataset
@@ -144,8 +145,20 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             corrl_reg += loss_corr_reg.item()
 
         if attribute_loss:
+            loss_attr = AttributeLoss()
             z = model.reparameterize(mu, log_var)
-        
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            #cls
+            loss_attr_cls = loss_attr(z[:,0], label[:, :, 0])
+            loss += loss_attr_cls * w_cls
+            #reg
+            loss_attr_reg = loss_attr(z[:,1], label[:, :, 2])
+            loss += loss_attr_reg * w_cls
+            #print(corr_loss.item())
+            loss_attribute_cls += loss_attr_cls.item()
+            loss_attribute_reg += loss_attr_reg.item()
+            
 
         loss.backward()        
         optimizer.step()
@@ -215,9 +228,11 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             optimizer.step()
     #print(corrl_cls)
     #print(corrl_reg)
-    print(snnl)
-    print(snnl_reg)
+    #print(snnl)
+    #print(snnl_reg)
     #print(w_loss)
+    print(loss_attribute_cls)
+    print(loss_attribute_reg)
     return total_loss / len(loader)
 
 

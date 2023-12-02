@@ -312,6 +312,30 @@ class WassersteinLoss(nn.Module):
         loss = self.h_loss(x, u[ind])
 
         return loss
+    
+# Attribute VAE loss
+class AttributeLoss(nn.Module):
+    def __init__(self, factor=1.0):
+        super(AttributeLoss, self).__init__()
+        self.factor = factor
+        self.loss_fn = nn.L1Loss()
+
+    def forward(self, latent_code, attribute):
+        # compute latent distance matrix
+        latent_code = latent_code.view(-1, 1).repeat(1, latent_code.shape[0])
+        lc_dist_mat = (latent_code - latent_code.transpose(1, 0)).view(-1, 1)
+
+        # compute attribute distance matrix
+        attribute = attribute.view(-1, 1).repeat(1, attribute.shape[0])
+        attribute_dist_mat = (attribute - attribute.transpose(1, 0)).view(-1, 1)
+
+        # compute regularization loss
+        lc_tanh = torch.tanh(lc_dist_mat * self.factor)
+        attribute_sign = torch.sign(attribute_dist_mat)
+        attribute_loss = self.loss_fn(lc_tanh, attribute_sign.float())
+
+        return attribute_loss
+
 
 '''
 # SNNL loss modified slow
