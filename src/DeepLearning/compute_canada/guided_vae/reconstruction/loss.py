@@ -239,11 +239,11 @@ class SNNLoss(nn.Module):
     
 # SNNL loss reg modified fast
 class SNNRegLoss(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, threshold):
         super(SNNRegLoss, self).__init__()
         self.T = T
         self.STABILITY_EPS = 0.00001
-        self.threshold = 0.025001
+        self.threshold = threshold
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size

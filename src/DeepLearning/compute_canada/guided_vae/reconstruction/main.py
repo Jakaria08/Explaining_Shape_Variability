@@ -55,6 +55,7 @@ parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
 parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
+parser.add_argument('--threshold', type=float, default=0.025001)
 
 args = parser.parse_args()
 
@@ -157,6 +158,7 @@ def objective(trial):
     args.delta = trial.suggest_float("delta", 0.1, 0.9, step=0.1)
     args.decay_step = trial.suggest_int("decay_step", 1, 50)
     args.latent_channels = trial.suggest_int("latent_channels", 12, 16, step=4)
+    args.threshold = trial.suggest_float("threshold", 0.005, 0.05, step=0.005)
     args.temperature = trial.suggest_int("temperature", 1, 200, step=20)
 
     sequence_length = trial.suggest_int("sequence_length", 5, 50)
@@ -190,7 +192,7 @@ def objective(trial):
     args.correlation_loss = False
 
     run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.attribute_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta)
+        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.attribute_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.threshold)
 
     euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
@@ -290,4 +292,4 @@ class LogAfterEachTrial:
 
 log_trials = LogAfterEachTrial()
 study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-study.optimize(objective, n_trials=200, callbacks=[log_trials])
+study.optimize(objective, n_trials=1000, callbacks=[log_trials])
