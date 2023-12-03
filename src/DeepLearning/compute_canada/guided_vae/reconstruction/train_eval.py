@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 from reconstruction import Regressor, Classifier
-from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss
+from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss, SNNRegLoss, WassersteinLoss, AttributeLoss
 from utils import DataLoader
 from torch.utils.data import Subset
 import random
@@ -16,7 +16,7 @@ def loss_function(original, reconstruction, mu, log_var, beta):
     return reconstruction_loss + beta*kld_loss
 
 def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
-        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, latent_channels, weight_decay_c, temp, delta):
+        device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, attribute_loss, latent_channels, weight_decay_c, temp, delta):
     
     model_c = Classifier(latent_channels).to(device)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=1e-3, weight_decay=weight_decay_c)
@@ -28,7 +28,7 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
     for epoch in range(1, epochs + 1):
         t = time.time()
-        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta)
+        train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, attribute_loss, temp, delta)
         t_duration = time.time() - t
         test_loss = test(model, test_loader, device, beta)
         scheduler.step()
@@ -42,10 +42,10 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_base/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_con_base/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/model_c_state_dict.pt")
 
-def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, delta):
+def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, attribute_loss, temp, delta):
     model.train()
     model_c.train()
     model_c_2.train()
@@ -64,6 +64,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_cls = 0
     corrl_reg = 0
     w_loss = 0
+    loss_attribute_cls = 0
+    loss_attribute_reg = 0
 
     # Calculate total and desired number of data
     # this is for taking small subset of data from big dataset
@@ -142,6 +144,20 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             corrl_cls += loss_corr_cls.item()
             corrl_reg += loss_corr_reg.item()
         
+        if attribute_loss:
+            loss_attr = AttributeLoss()
+            z = model.reparameterize(mu, log_var)
+            #print(z.shape)
+            #print(label[:, :, 0].shape)
+            #cls
+            loss_attr_cls = loss_attr(z[:,0], label[:, :, 0])
+            loss += loss_attr_cls * w_cls
+            #reg
+            loss_attr_reg = loss_attr(z[:,1], label[:, :, 2])
+            loss += loss_attr_reg * w_cls
+            #print(corr_loss.item())
+            loss_attribute_cls += loss_attr_cls.item()
+            loss_attribute_reg += loss_attr_reg.item()
 
         loss.backward()        
         optimizer.step()
@@ -214,6 +230,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     print(snnl)
     print(snnl_reg)
     #print(w_loss)
+    #print(loss_attribute_cls)
+    #print(loss_attribute_reg)
     return total_loss / len(loader)
 
 
