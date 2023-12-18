@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import math
+import scipy.optimize
+from scipy.spatial.distance import cdist
 
 class SNNLCrossEntropy():
     STABILITY_EPS = 0.00001
@@ -67,7 +69,7 @@ class SNNLCrossEntropy():
         :returns: A tensor for the row normalized exponentiated pairwise distance
                   between all the elements of x.
         """
-        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(x.shape[0], device='cuda:0')
+        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(x.shape[0], device='cuda:1')
         return f / (SNNLCrossEntropy.STABILITY_EPS + f.sum(axis=1).unsqueeze(1))
     
     @staticmethod
@@ -130,9 +132,7 @@ class ClsCorrelationLoss(nn.Module):
         r_pb = (mean_z_1 - mean_z_0) / torch.std(z_batch[:, 0]) * mlt
 
         # Calculate correlation of other dimensions with y
-        other_dim_corrs = torch.zeros(z_batch.shape[1])
-        #print(other_dim_corrs.shape)
-        
+        other_dim_corrs = torch.zeros_like(z_batch[:, 1])
         for i in range(1, z_batch.shape[1]):
             other_dim_corrs[i-1] = (torch.mean(z_1[:, i]) - torch.mean(z_0[:, i])) / torch.std(z_batch[:, i]) * mlt
 
@@ -174,7 +174,7 @@ class RegCorrelationLoss(nn.Module):
         r_p = cross_product / denominator
 
         # Calculate correlation of other dimensions with y
-        other_dim_corrs = torch.zeros(z_batch.shape[1])
+        other_dim_corrs = torch.zeros_like(z_batch[:, 0])
         #first element
         mean_z, mean_y = torch.mean(z_batch[:, 0]), torch.mean(y_batch)
         diff_z, diff_y = z_batch[:, 0] - mean_z, y_batch - mean_y
@@ -207,38 +207,49 @@ class SNNLoss(nn.Module):
         b = x.size(0)  # Batch size
         y = y.squeeze()
 
-        x_expanded = x.unsqueeze(1)  # Expand dimensions for broadcasting
+        x_expanded = x[:,0].unsqueeze(1)  # Expand dimensions for broadcasting
         y_expanded = y.unsqueeze(0)
 
         same_class_mask = y_expanded == y_expanded.t()
 
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
         #print(exp_distances)
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
+        # remaining elements
+        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
+        for i in range(1, x.shape[1]):
+            x_expanded = x[:,i].unsqueeze(1)
+            squared_distances = (x_expanded - x_expanded.t()) ** 2
+            exp_distances = torch.exp(-(squared_distances / self.T))
+            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * same_class_mask
+            exp_distances_all = exp_distances_all + exp_distances
 
+        
+        denominator1 = exp_distances_all/float(x.shape[1]-1)
         #print(denominator)
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (0.5*denominator.sum(dim=1)) + (0.5*denominator1.sum(dim=1))))).mean()
 
         return lsn_loss
     
 # SNNL loss reg modified fast
 class SNNRegLoss(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, threshold=0.025):
         super(SNNRegLoss, self).__init__()
         self.T = T
         self.STABILITY_EPS = 0.00001
-        self.threshold = 0.025001
+        self.threshold = threshold
 
     def forward(self, x, y):
         b = x.size(0)  # Batch size
         y = y.squeeze()
 
-        x_expanded = x.unsqueeze(1)  # Expand dimensions for broadcasting
+        x_expanded = x[:,1].unsqueeze(1)  # Expand dimensions for broadcasting
         y_expanded = y.unsqueeze(0)
 
         abs_diff_matrix = torch.abs(y_expanded - y_expanded.t())
@@ -246,17 +257,84 @@ class SNNRegLoss(nn.Module):
 
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
         #print(exp_distances)
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
+        # remaining elements
+        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
+        x_expanded = x[:,0].unsqueeze(1)
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+        exp_distances = exp_distances * same_class_mask
+        exp_distances_all = exp_distances_all + exp_distances
+        for i in range(2, x.shape[1]):
+            x_expanded = x[:,i].unsqueeze(1)
+            squared_distances = (x_expanded - x_expanded.t()) ** 2
+            exp_distances = torch.exp(-(squared_distances / self.T))
+            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * same_class_mask
+            exp_distances_all = exp_distances_all + exp_distances
 
         #print(denominator)
+        denominator1 = exp_distances_all/float(x.shape[1]-1)
 
-        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + denominator.sum(dim=1)))).mean()
+        lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (0.5*denominator.sum(dim=1)) + (0.5*denominator1.sum(dim=1))))).mean()
 
         return lsn_loss
+
+
+# Wasserstein loss proposed by nilanjan
+class WassersteinLoss(nn.Module):
+    def __init__(self, delta):
+        super(WassersteinLoss, self).__init__()
+        self.delta = delta
+        self.h_loss = torch.nn.HuberLoss(reduction='mean', delta=delta)
+
+    def linear_assignment(self, x, u):
+        dist_matrix = cdist(x, u)
+        _, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
+        return col_ind
+
+    def forward(self, x):
+        bsize = x.shape[0]
+        dim = x.shape[1]
+
+        u = x[torch.randperm(bsize), 0:1]
+        for i in range(dim - 1):
+            u = torch.cat((u, x[torch.randperm(bsize), i + 1:i + 2]), dim=1)
+
+        with torch.no_grad():
+            ind = self.linear_assignment(x.cpu().detach().numpy(), u.cpu().detach().numpy())
+
+        loss = self.h_loss(x, u[ind])
+
+        return loss
+    
+# Attribute VAE loss
+class AttributeLoss(nn.Module):
+    def __init__(self, factor=1.0):
+        super(AttributeLoss, self).__init__()
+        self.factor = factor
+        self.loss_fn = nn.L1Loss()
+
+    def forward(self, latent_code, attribute):
+        # compute latent distance matrix
+        latent_code = latent_code.view(-1, 1).repeat(1, latent_code.shape[0])
+        lc_dist_mat = (latent_code - latent_code.transpose(1, 0)).view(-1, 1)
+
+        # compute attribute distance matrix
+        attribute = attribute.view(-1, 1).repeat(1, attribute.shape[0])
+        attribute_dist_mat = (attribute - attribute.transpose(1, 0)).view(-1, 1)
+
+        # compute regularization loss
+        lc_tanh = torch.tanh(lc_dist_mat * self.factor)
+        attribute_sign = torch.sign(attribute_dist_mat)
+        attribute_loss = self.loss_fn(lc_tanh, attribute_sign.float())
+
+        return attribute_loss
 
 
 '''
