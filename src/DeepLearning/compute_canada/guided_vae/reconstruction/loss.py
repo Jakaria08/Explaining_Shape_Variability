@@ -69,7 +69,7 @@ class SNNLCrossEntropy():
         :returns: A tensor for the row normalized exponentiated pairwise distance
                   between all the elements of x.
         """
-        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(x.shape[0], device='cuda:1')
+        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(x.shape[0], device='cuda:0')
         return f / (SNNLCrossEntropy.STABILITY_EPS + f.sum(axis=1).unsqueeze(1))
     
     @staticmethod
@@ -214,18 +214,18 @@ class SNNLoss(nn.Module):
 
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
         #print(exp_distances)
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
         # remaining elements
-        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
+        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:0')
         for i in range(1, x.shape[1]):
             x_expanded = x[:,i].unsqueeze(1)
             squared_distances = (x_expanded - x_expanded.t()) ** 2
             exp_distances = torch.exp(-(squared_distances / self.T))
-            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
             exp_distances = exp_distances * same_class_mask
             exp_distances_all = exp_distances_all + exp_distances
 
@@ -257,24 +257,24 @@ class SNNRegLoss(nn.Module):
 
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
         #print(exp_distances)
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
         # remaining elements
-        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
+        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:0')
         x_expanded = x[:,0].unsqueeze(1)
         squared_distances = (x_expanded - x_expanded.t()) ** 2
         exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
         exp_distances = exp_distances * same_class_mask
         exp_distances_all = exp_distances_all + exp_distances
         for i in range(2, x.shape[1]):
             x_expanded = x[:,i].unsqueeze(1)
             squared_distances = (x_expanded - x_expanded.t()) ** 2
             exp_distances = torch.exp(-(squared_distances / self.T))
-            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:0'))
             exp_distances = exp_distances * same_class_mask
             exp_distances_all = exp_distances_all + exp_distances
 
