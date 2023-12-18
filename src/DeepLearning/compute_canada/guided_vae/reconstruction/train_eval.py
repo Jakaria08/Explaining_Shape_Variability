@@ -49,8 +49,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
 
         writer.print_info(info)
         writer.save_checkpoint(model, optimizer, scheduler, epoch)
-        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/model_state_dict.pt")
-        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/model_c_state_dict.pt")
+        torch.save(model.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided_decrease_trainset/model_state_dict.pt")
+        torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided_decrease_trainset/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, i):
     model.train()
@@ -78,11 +78,11 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     #print("desired batches: "+ str(desired_batches))
     #print("total batches: " + str(total_batches))
     # Shuffle the indices of the entire dataset
-    shuffled_indices = list(range(total_data))
-    random.shuffle(shuffled_indices)
+    indices = list(range(total_data))
+    #random.shuffle(shuffled_indices)
 
     # Use the first 'desired_data' indices to create a subset
-    subset_indices = shuffled_indices[:desired_data]
+    subset_indices = indices[:desired_data]
     # Select desired number of batches according to the percentage of train data
     subset_loader = DataLoader(Subset(loader.dataset, subset_indices), 
                                batch_size=loader.batch_size)
