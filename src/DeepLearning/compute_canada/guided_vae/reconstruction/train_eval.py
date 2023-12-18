@@ -71,7 +71,7 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     corrl_cls = 0
     corrl_reg = 0
     # Calculate total and desired number of batches
-    total_data = len(loader)*loader.batch_size
+    total_data = len(loader.dataset)
     # i is the percentage of train data
     #print("Data Percentage: "+str(i))
     desired_data = math.ceil(i/10 * total_data)
