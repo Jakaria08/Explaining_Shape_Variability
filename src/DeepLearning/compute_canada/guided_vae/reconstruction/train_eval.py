@@ -116,14 +116,14 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
             z = model.reparameterize(mu, log_var)
             #print(z.shape)
             #print(label[:, :, 0].shape)
-            loss_snn = SNN_Loss(z[:,0], label[:, :, 0])
+            loss_snn = SNN_Loss(z, label[:, :, 0])
             loss += loss_snn * w_cls
             #print(loss_snn.item())
             snnl += loss_snn.item()
 
             #Regression Loss
             SNN_Loss_Reg = SNNRegLoss(temp)
-            loss_snn_reg = SNN_Loss_Reg(z[:,1], label[:, :, 2])
+            loss_snn_reg = SNN_Loss_Reg(z, label[:, :, 2])
             loss += loss_snn_reg * w_cls
             #print(loss_snn.item())
             snnl_reg += loss_snn_reg.item()
