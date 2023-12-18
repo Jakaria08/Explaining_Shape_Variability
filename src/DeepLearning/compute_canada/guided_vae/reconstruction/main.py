@@ -50,8 +50,9 @@ parser.add_argument('--wcls', type=int, default=1)
 
 # others
 parser.add_argument('--correlation_loss', type=bool, default=False)
-parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
+parser.add_argument('--guided_contrastive_loss', type=bool, default=False)
 parser.add_argument('--guided', type=bool, default=False)
+parser.add_argument('--attribute_loss', type=bool, default=True)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
 
@@ -182,8 +183,9 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                             gamma=args.lr_decay)
 
 args.guided = False
-args.guided_contrastive_loss = True
+args.guided_contrastive_loss = False
 args.correlation_loss = False
+args.attribute_loss = True
 
 # Concatenate training and dev datasets
 combined_train_dataset = ConcatDataset([train_loader.dataset, val_loader.dataset])
@@ -194,7 +196,7 @@ combined_train_loader = DataLoader(combined_train_dataset, batch_size=args.batch
 for j in range(10, 0, -1):
     run(model, combined_train_loader, val_loader, args.epochs, optimizer, scheduler,
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, 
-        args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
+        args.correlation_loss, args.attribute_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
         j)
 
     # Test metric on train set
