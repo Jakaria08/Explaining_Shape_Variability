@@ -54,6 +54,7 @@ parser.add_argument('--guided_contrastive_loss', type=bool, default=True)
 parser.add_argument('--guided', type=bool, default=False)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--temperature', type=int, default=100)
+parser.add_argument('--threshold', type=float, default=0.025001)
 
 args = parser.parse_args()
 
@@ -148,21 +149,22 @@ up_transform_list = [
 # define model and optimizer and set parameters
 args.epochs = 300
 args.batch_size = 16
-args.wcls = 63
-args.beta = 0.006145902872613284
-args.lr = 0.00014669194595000342
-args.lr_decay = 0.96
-args.decay_step = 13
+args.wcls = 31
+args.beta = 0.0015296253151714872
+args.lr = 0.00036226239672775267
+args.lr_decay = 0.77
+args.decay_step = 20
 args.latent_channels = 12
-args.temperature = 61
+args.threshold = 0.034999999999999996
+args.temperature = 181
 
-sequence_length = 12
+sequence_length = 46
 args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
 dilation = 2
 args.dilation = [dilation, dilation, dilation, dilation]
 
-out_channel = 32
+out_channel = 8
 args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
 print(args)    
 
@@ -194,7 +196,7 @@ combined_train_loader = DataLoader(combined_train_dataset, batch_size=args.batch
 for j in range(10, 0, -1):
     run(model, combined_train_loader, val_loader, args.epochs, optimizer, scheduler,
         writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, 
-        args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, 
+        args.correlation_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.threshold, 
         j)
 
     # Test metric on train set
