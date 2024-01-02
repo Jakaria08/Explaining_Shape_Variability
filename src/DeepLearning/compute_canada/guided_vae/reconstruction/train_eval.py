@@ -70,6 +70,8 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
     snnl_reg = 0
     corrl_cls = 0
     corrl_reg = 0
+    loss_attribute_cls = 0
+    loss_attribute_reg = 0
     # Calculate total and desired number of batches
     total_data = len(loader.dataset)
     # i is the percentage of train data
