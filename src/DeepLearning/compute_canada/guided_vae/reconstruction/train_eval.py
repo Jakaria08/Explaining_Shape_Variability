@@ -90,7 +90,7 @@ def linear_annealing(init, fin, step, annealing_steps):
 
 # Batch TC specific
 # TO-DO: test if mss is better!
-def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, is_mss=True):
+def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, is_mss=False):
 
     # calculate log q(z|x)
     log_q_zCx = log_density_gaussian(latent_sample, *latent_dist).sum(dim=1)
@@ -122,7 +122,7 @@ def loss_function_tc(original, reconstruction, mu, log_var, z, alpha, beta, gamm
                                                                              latent_dist,
                                                                              n_data,
                                                                              batch_size,
-                                                                             is_mss=True)
+                                                                             is_mss=False)
     # I[z;x] = KL[q(z,x)||q(x)q(z)] = E_x[KL[q(z|x)||q(z)]]
     mi_loss = (log_q_zCx - log_qz).mean()
     # TC[z] = KL[q(z)||\prod_i z_i]
@@ -135,6 +135,8 @@ def loss_function_tc(original, reconstruction, mu, log_var, z, alpha, beta, gamm
 
     loss = reconstruction_loss + (alpha * mi_loss + beta * tc_loss +
                            anneal_reg * gamma * dw_kl_loss)
+    #loss = reconstruction_loss + (alpha * mi_loss + beta * tc_loss +
+                           #gamma * dw_kl_loss)
     return loss
 
 
@@ -182,6 +184,8 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         torch.save(model_c.state_dict(), "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/model_c_state_dict.pt")
 
 def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, threshold, tc, i):
+    global n_train_steps
+    n_train_steps += 1
     model.train()
     model_c.train()
     model_c_2.train()
