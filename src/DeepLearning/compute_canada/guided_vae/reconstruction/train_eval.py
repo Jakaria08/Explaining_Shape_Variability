@@ -8,7 +8,7 @@ from reconstruction.loss import ClsCorrelationLoss, RegCorrelationLoss, SNNLoss,
 from torch.utils.data import Subset
 from utils import DataLoader
 import random
-
+n_train_steps = 0
 
 def matrix_log_density_gaussian(x, mu, logvar):
     """Calculates log density of a Gaussian for all combination of bacth pairs of
