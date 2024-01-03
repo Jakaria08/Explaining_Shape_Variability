@@ -230,13 +230,14 @@ def train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, load
 	    # VAE + Exhibition
         optimizer.zero_grad()
         out, mu, log_var, re, re_2 = model(x) # re2 for excitation
+        z = model.reparameterize(mu, log_var)
         n_data = len(subset_loader.dataset)
         alpha = 1
         #beta = 1
         gamma = 1
 
         if tc:
-            loss = loss_function(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train=True)
+            loss = loss_function_tc(x, out, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train=True)
         else:
             loss = loss_function(x, out, mu, log_var, beta)    
 
