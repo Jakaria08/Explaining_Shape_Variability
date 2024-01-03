@@ -90,7 +90,7 @@ def linear_annealing(init, fin, step, annealing_steps):
 
 # Batch TC specific
 # TO-DO: test if mss is better!
-def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, is_mss=False):
+def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, is_mss=True):
 
     # calculate log q(z|x)
     log_q_zCx = log_density_gaussian(latent_sample, *latent_dist).sum(dim=1)
@@ -114,7 +114,7 @@ def _get_log_pz_qz_prodzi_qzCx(latent_sample, latent_dist, n_data, batch_size, i
 
 def loss_function_tc(original, reconstruction, mu, log_var, z, alpha, beta, gamma, n_data, batch_size, is_train):
     global n_train_steps
-    reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
+    reconstruction_loss = F.l1_loss(reconstruction, original, reduction='sum')/batch_size
     #kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
     latent_sample = z
     latent_dist = mu, log_var
@@ -122,7 +122,7 @@ def loss_function_tc(original, reconstruction, mu, log_var, z, alpha, beta, gamm
                                                                              latent_dist,
                                                                              n_data,
                                                                              batch_size,
-                                                                             is_mss=False)
+                                                                             is_mss=True)
     # I[z;x] = KL[q(z,x)||q(x)q(z)] = E_x[KL[q(z|x)||q(z)]]
     mi_loss = (log_q_zCx - log_qz).mean()
     # TC[z] = KL[q(z)||\prod_i z_i]
@@ -382,7 +382,7 @@ def test(model, loader, device, beta):
                 continue
             #print(re.shape)
             total_loss += loss_function(x, pred, mu, log_var, beta)
-            recon_loss += F.l1_loss(pred, x, reduction='mean')
+            recon_loss += F.l1_loss(pred, x, reduction='sum')/len(data)
             reg_loss += F.binary_cross_entropy(re, y[:, :, 0], reduction='mean')
             reg_loss_2 += F.mse_loss(re_2, y[:, :, 2], reduction='mean')
 
