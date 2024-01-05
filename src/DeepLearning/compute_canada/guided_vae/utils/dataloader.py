@@ -9,7 +9,7 @@ class DataLoader(torch.utils.data.DataLoader):
         def collate(data_list):
             batch = Batch()
             batch.batch = []
-            for key in data_list[0].keys:
+            for key in data_list[0].keys():
                 batch[key] = default_collate([d[key] for d in data_list])
             for i, data in enumerate(data_list):
                 num_nodes = data.num_nodes
