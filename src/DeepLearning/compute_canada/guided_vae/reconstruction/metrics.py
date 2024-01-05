@@ -1,21 +1,15 @@
 import torch
 from reconstruction import AE
 from datasets import MeshData
-from utils import utils, DataLoader, sap
-import numpy as np
-import pyvista as pv
-from IPython.display import display
-import os, sys
-from math import ceil
-from scipy.ndimage import zoom
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
+from utils import DataLoader
 import tqdm
+import numpy as np
 import geomloss
 from pytorch3d.loss import chamfer_distance
-
+from scipy.stats import entropy
+from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier, KNeighborsRegressor
+from numpy.linalg import norm
+from sklearn.metrics import accuracy_score, mean_squared_error
 
 device = torch.device('cuda', 1)
 # Set the path to the saved model directory
