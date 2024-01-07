@@ -238,7 +238,7 @@ def compute_all_metrics(sample_pcs, ref_pcs, batch_size):
     results = {}
 
     m_rs_cd, m_rs_emd = _pairwise_emd_cd_(sample_pcs, ref_pcs, batch_size)
-
+    '''
     res_cd = lgan_mmd_cov(m_rs_cd.t())
     results.update({
         "%s-CD" % k: v for k, v in res_cd.items()
@@ -248,7 +248,7 @@ def compute_all_metrics(sample_pcs, ref_pcs, batch_size):
     results.update({
         "%s-EMD" % k: v for k, v in res_emd.items()
     })
-
+    '''
     m_rr_cd, m_rr_emd = _pairwise_emd_cd_(ref_pcs, ref_pcs, batch_size)
     m_ss_cd, m_ss_emd = _pairwise_emd_cd_(sample_pcs, sample_pcs, batch_size)
 
