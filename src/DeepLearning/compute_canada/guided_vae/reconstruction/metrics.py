@@ -14,9 +14,9 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 device = torch.device('cuda', 1)
 # Set the path to the saved model directory
 #model_path = "/home/jakaria/torus_bump_500_three_scale_binary_bump_variable_noise_fixed_angle/models_classification_regression_only_correlation_loss/models/65"
-#model_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib/146"
+model_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib/146"
 #model_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_guided/30"# Load the saved model
-model_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_attribute/23"
+#model_path = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_attribute/23"
 model_state_dict = torch.load(f"{model_path}/model_state_dict.pt")
 in_channels = torch.load(f"{model_path}/in_channels.pt")
 out_channels = torch.load(f"{model_path}/out_channels.pt")
@@ -52,95 +52,31 @@ meshdata = MeshData(data_fp,
 train_loader = DataLoader(meshdata.train_dataset, batch_size=16)
 test_loader = DataLoader(meshdata.test_dataset, batch_size=16)
 
-angles_train = []
-thick_train = []
-latent_codes_train = []
-
-angles_test = []
-thick_test = []
-latent_codes_test = []
-
-test_original = []
-test_reconstructed = []
-
-single_latent = True
-#print(type(train_loader))
-
-with torch.no_grad():
-    for i, data in enumerate(train_loader):
-        #print("train...")
-        x = data.x.to(device)
-        y = data.y.to(device)
-        pred, mu, log_var, re, re2 = model(x)
-
-        z = model.reparameterize(mu, log_var)
-        if single_latent:
-            z = z[:,1]
-        latent_codes_train.append(z)
-        angles_train.append(y[:, :, 0])
-        thick_train.append(y[:, :, 2])
-
+test_original_small = []
 with torch.no_grad():
     for i, data in enumerate(test_loader):
         #print("test...")
         x = data.x.to(device)
         y = data.y.to(device)
-        pred, mu, log_var, re, re2 = model(x)
 
-        z = model.reparameterize(mu, log_var)
-        if single_latent:
-            z = z[:,1]
-        latent_codes_test.append(z)
-        angles_test.append(y[:, :, 0])
-        thick_test.append(y[:, :, 2])
+        test_original_small.append(x)
+        
+        if i == 1:
+            print(len(test_original_small))
+            break
+test_original_small = torch.cat(test_original_small)
+print(test_original_small.shape)
 
-        test_original.append(x)
-        test_reconstructed.append(pred)
+def random_latent(n_samples, latent_dim=12):
+    z = torch.randn([n_samples, latent_dim])
+    z = z.to(device)
+    return z
 
-latent_codes_train = torch.cat(latent_codes_train)
-if single_latent:
-    latent_codes_train = latent_codes_train.cpu().numpy().reshape(-1, 1)
-else:
-    latent_codes_train = latent_codes_train.cpu().numpy()
-angles_train = torch.cat(angles_train).view(-1,1)
-angles_train = angles_train.view(-1).cpu().numpy()
-thick_train = torch.cat(thick_train).view(-1,1)
-thick_train = thick_train.view(-1).cpu().numpy()
-
-latent_codes_test = torch.cat(latent_codes_test)
-if single_latent:
-    latent_codes_test = latent_codes_test.cpu().numpy().reshape(-1, 1)
-else:   
-    latent_codes_test = latent_codes_test.cpu().numpy()
-angles_test = torch.cat(angles_test).view(-1,1)
-angles_test = angles_test.view(-1).cpu().numpy()
-thick_test = torch.cat(thick_test).view(-1,1)
-thick_test = thick_test.view(-1).cpu().numpy()
-
-test_original = torch.cat(test_original)
-#test_original = test_original.cpu().numpy()
-test_reconstructed = torch.cat(test_reconstructed)
-#test_reconstructed = test_reconstructed.cpu().numpy()
-
-# Train a classifier on the latent codes
-X_train = latent_codes_train
-y_train = thick_train
-X_test = latent_codes_test
-y_test = thick_test
-
-#knn = KNeighborsClassifier(n_neighbors=5)
-knn = KNeighborsRegressor(n_neighbors=12)
-knn.fit(X_train, y_train)
-y_pred = knn.predict(X_test)
-#print(y_test[:10], y_pred[:10])
-#print(latent_codes_test[:10], y_test[:10])
-
-#print(y_test, y_pred)
-#print("Accuracy of the KNN for binary bump: ", accuracy_score(y_test, y_pred[:len(y_test)]))
-print("MSE of the KNN for thickness: ", mean_squared_error(y_test, y_pred[:len(y_test)]))
-
-
-
+def random_generation(n_samples=16, latent_dim=12):
+    z = random_latent(n_samples, latent_dim=latent_dim)
+    with torch.no_grad():
+        gen_verts = model.decoder(z.to(device))
+    return gen_verts
 
 
 def emd_approx(sample, ref):
@@ -266,5 +202,8 @@ def compute_all_metrics(sample_pcs, ref_pcs, batch_size):
 
 
 
-results = compute_all_metrics(test_original, test_reconstructed, 16)
-print(results)
+random_generation = random_generation(n_samples=32, latent_dim=12)
+print(random_generation.shape)
+
+restults = compute_all_metrics(random_generation, test_original_small, 2)
+print(restults)
