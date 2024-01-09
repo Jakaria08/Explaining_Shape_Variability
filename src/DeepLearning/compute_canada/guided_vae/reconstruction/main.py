@@ -235,7 +235,7 @@ for j in range(10, 0, -1):
                                                     sap_score_train, pcc_thick_train, sap_score_thick_train, euclidean_distance_train, j)
 
 
-    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/train.txt'
+    out_error_fp_train = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/train.txt'
     with open(out_error_fp_train, 'a') as log_file_train:
         log_file_train.write('{:s}\n'.format(message_train))
 
@@ -294,9 +294,9 @@ for j in range(10, 0, -1):
     df1 = pd.DataFrame(angles.cpu().numpy())
     df2 = pd.DataFrame(thick.cpu().numpy())
     # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/thick.csv"
+    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/latent_codes.csv"
+    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/angles.csv"
+    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/thick.csv"
     # Save the DataFrame to an Excel file
     df.to_csv(excel_file_path_latent, index=False)
     df1.to_csv(excel_file_path_angles, index=False)
@@ -306,12 +306,12 @@ for j in range(10, 0, -1):
                                                     sap_score, pcc_thick, sap_score_thick, euclidean_distance, j)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/test.txt'
+    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/test.txt'
     with open(out_error_fp, 'a') as log_file:
         log_file.write('{:s}\n'.format(message))
 
     if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_contrastive_inhib_decrease_trainset_tc/{j}/"
+        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/models_only_bvae/{j}/"
         os.makedirs(model_path)
         torch.save(sap_score, f"{model_path}sap_score.pt") 
         torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
