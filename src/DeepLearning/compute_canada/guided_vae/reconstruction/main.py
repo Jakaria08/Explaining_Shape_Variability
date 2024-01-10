@@ -25,7 +25,7 @@ parser.add_argument('--dataset', type=str, default='CoMA')
 parser.add_argument('--split', type=str, default='interpolation')
 parser.add_argument('--test_exp', type=str, default='bareteeth')
 parser.add_argument('--n_threads', type=int, default=4)
-parser.add_argument('--device_idx', type=int, default=0)
+parser.add_argument('--device_idx', type=int, default=1)
 
 # network hyperparameters
 parser.add_argument('--out_channels', nargs='+', default=[32, 32, 32, 64], type=int)
@@ -185,9 +185,9 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                             gamma=args.lr_decay)
 
 args.guided = False
-args.guided_contrastive_loss = True
+args.guided_contrastive_loss = False
 args.correlation_loss = False
-args.tc = True
+args.tc = False
 # Concatenate training and dev datasets
 combined_train_dataset = ConcatDataset([train_loader.dataset, val_loader.dataset])
 
