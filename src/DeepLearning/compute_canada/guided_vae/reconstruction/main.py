@@ -187,7 +187,7 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
 args.guided = False
 args.guided_contrastive_loss = True
 args.correlation_loss = False
-args.tc = True
+args.tc = False
 # Concatenate training and dev datasets
 combined_train_dataset = ConcatDataset([train_loader.dataset, val_loader.dataset])
 

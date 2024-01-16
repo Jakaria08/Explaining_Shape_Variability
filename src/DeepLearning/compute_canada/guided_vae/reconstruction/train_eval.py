@@ -168,7 +168,10 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         t = time.time()
         train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, temp, threshold, tc, i)
         t_duration = time.time() - t
+        test_time = time.time()
         test_loss = test(model, test_loader, device, beta)
+        test_time = time.time() - test_time
+        print("Test time: " + str(test_time))
         scheduler.step()
         info = {
             'current_epoch': epoch,
