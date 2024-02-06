@@ -187,7 +187,7 @@ def objective(trial):
                                                 gamma=args.lr_decay)
 
     args.guided = False
-    args.guided_contrastive_loss = True
+    args.guided_contrastive_loss = False
     args.attribute_loss = False
     args.correlation_loss = False
 

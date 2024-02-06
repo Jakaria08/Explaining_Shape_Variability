@@ -19,8 +19,8 @@ class Writer:
                 self.log_file = tmp_log_list[0]
 
     def print_info(self, info):
-        message = 'Epoch: {}/{}, Duration: {:.3f}s, Train Loss: {:.4f}, Test Loss: {:.4f}' \
-                .format(info['current_epoch'], info['epochs'], info['t_duration'], \
+        message = 'Epoch: {}/{}, Train Duration: {:.3f}s, Test Duration: {:.3f}s, Train Loss: {:.4f}, Test Loss: {:.4f}' \
+                .format(info['current_epoch'], info['epochs'], info['t_duration'], info['test_duration'], \
                 info['train_loss'], info['test_loss'])
         with open(self.log_file, 'a') as log_file:
             log_file.write('{:s}\n'.format(message))

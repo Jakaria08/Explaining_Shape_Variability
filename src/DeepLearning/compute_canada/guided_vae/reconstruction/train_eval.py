@@ -30,14 +30,17 @@ def run(model, train_loader, test_loader, epochs, optimizer, scheduler, writer,
         t = time.time()
         train_loss = train(model, optimizer, model_c, optimizer_c, model_c_2, optimizer_c_2, train_loader, device, beta, w_cls, guided, guided_contrastive_loss, correlation_loss, attribute_loss, temp, delta, threshold)
         t_duration = time.time() - t
+        t1 = time.time()
         test_loss = test(model, test_loader, device, beta)
+        test_duration = time.time() - t1
         scheduler.step()
         info = {
             'current_epoch': epoch,
             'epochs': epochs,
             'train_loss': train_loss,
             'test_loss': test_loss,
-            't_duration': t_duration
+            't_duration': t_duration,
+            'test_duration': test_duration
         }
 
         writer.print_info(info)
