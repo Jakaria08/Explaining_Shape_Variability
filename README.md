@@ -30,15 +30,15 @@ Detail the steps involved in data processing. Include any scripts or tools provi
 
 Detail the steps involved in the evaluation. Include any scripts or tools provided in the repository for these purposes.
 
-## Setup and Commands
+# Setup and Commands
 
 Provide instructions on setting up the development environment and executing key commands. Include dependencies, software versions, and any other relevant information.
 
-## Data
+# Data
 
 Outline the data used in your research. Include instructions on how to access and preprocess the data.
 
-## Trained Models
+# Trained Models
 
 If applicable, provide pre-trained models and instructions on how to use them for prediction or further training.
 
@@ -46,11 +46,7 @@ If applicable, provide pre-trained models and instructions on how to use them fo
 
 Include any supplementary material related to the paper, such as additional experiments, analyses, or results.
 
-# Visualization
+## Visualization
 
-## Visualizations
-
-### 3D Plots
-
-Include visualizations related to 3D plots, if any. Provide scripts or instructions on how to reproduce these visualizations.
+Include visualizations.
 
