@@ -6,9 +6,9 @@ This repository contains the code and resources for the paper: **Disentangling H
 
 1. [Code](#code)
     - [Models](#models)
-    - Annotation](#annotation)
-    - Data Processing(#data-processing)
-    - Evaluation](#evaluation)
+    - [Annotation](#annotation)
+    - [Data Processing](#data-processing)
+    - [Evaluation](#evaluation)
 2. [Setup and Commands](#setup-and-commands)
 3. [Data](#data)
 4. [Trained Models](#trained-models)
@@ -16,7 +16,7 @@ This repository contains the code and resources for the paper: **Disentangling H
     - [Visualizations](#visualizations)
     - [3D Plots](#3d-plots)
 
-## Code
+# Code
 
 Explain briefly what the code does and how it is organized. Provide instructions for running and using the code.
 
