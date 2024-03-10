@@ -149,25 +149,25 @@ up_transform_list = [
 
 def objective(trial):
 
-    args.epochs = trial.suggest_int("epochs", 100, 400, step=100)
-    args.batch_size = trial.suggest_int("batch_size", 4, 32, 4)
-    args.wcls = trial.suggest_int("w_cls", 1, 100)
-    args.beta = trial.suggest_float("beta", 0.001, 0.3, log=True)
-    args.lr = trial.suggest_float("learning_rate", 0.0001, 0.001, log=True)
-    args.lr_decay = trial.suggest_float("learning_rate_decay", 0.70, 0.99, step=0.01)
-    args.delta = trial.suggest_float("delta", 0.1, 0.9, step=0.1)
-    args.decay_step = trial.suggest_int("decay_step", 1, 50)
-    args.latent_channels = trial.suggest_int("latent_channels", 12, 16, step=4)
-    args.threshold = trial.suggest_float("threshold", 0.005, 0.05, step=0.005)
-    args.temperature = trial.suggest_int("temperature", 1, 200, step=20)
+    args.epochs = 100
+    args.batch_size = 16
+    args.wcls = 47
+    args.beta = 0.001620597425991221
+    args.lr = 0.00047907102566047957
+    args.lr_decay = 0.9299999999999999
+    args.delta = 0.30000000000000004
+    args.decay_step = 7
+    args.latent_channels = 12
+    args.threshold = 0.035
+    args.temperature = 1
 
-    sequence_length = trial.suggest_int("sequence_length", 5, 50)
+    sequence_length = 28
     args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-    dilation = trial.suggest_int("dilation", 1, 2)
+    dilation = 2
     args.dilation = [dilation, dilation, dilation, dilation]
     
-    out_channel = trial.suggest_int("out_channel", 8, 32, 8)
+    out_channel = 16
     args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
     print(args)    
 
