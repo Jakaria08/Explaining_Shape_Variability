@@ -262,7 +262,7 @@ with open(out_error_fp, 'a') as log_file:
 
 if sap_score >= 0:
     model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/"
-    os.makedirs(model_path)
+    #os.makedirs(model_path)
     torch.save(sap_score, f"{model_path}sap_score.pt") 
     torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
 
