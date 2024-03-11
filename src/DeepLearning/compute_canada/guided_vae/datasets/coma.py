@@ -91,18 +91,33 @@ class CoMA(InMemoryDataset):
     def process(self):
         print('Processing...')
 
-        labels = torch.load(f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
+        # Load labels
+        labels = torch.load("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/labels.pt")
+        #labels = torch.load("C:\\Users\\Jakar\\Downloads\\Hippocampus_Study\\disease_progression\\hippo_ms_label_age_32_71\\labels.pt")
+        # Filter keys starting with "ms"
+        ms_keys = [key for key in labels.keys() if key.startswith("ms")]
 
-        #X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), stratify=list(labels.values()), test_size=0.2, random_state=0)
-        X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), test_size=0.2, random_state=28)
-        #random.seed(3783)
-        #indices = random.sample(range(0, 101), 51)
-        #X_val = [X_test[index] for index in indices]
-        #X_test = [j for i, j in enumerate(X_test) if i not in indices]
-        X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=28)
+        # Split ms_keys into training, validation, and test sets
+        ms_train, ms_test = train_test_split(ms_keys, test_size=0.2, random_state=28)
+        ms_val, ms_test = train_test_split(ms_test, test_size=0.5, random_state=28)
 
-        #X_val = X_test[:51]
-        #X_test_new = X_test[51:]
+        # Get non-"ms" keys
+        non_ms_keys = [key for key in labels.keys() if not key.startswith("ms")]
+
+        # Split non-ms_keys into training, validation, and test sets
+        X_train, X_test = train_test_split(non_ms_keys, test_size=0.2, random_state=28)
+        X_val, X_test = train_test_split(X_test, test_size=0.5, random_state=28)
+
+        # Combine the splits
+        X_train.extend(ms_train)
+        X_val.extend(ms_val)
+        X_test.extend(ms_test)
+
+        # Create corresponding labels for the splits
+        y_train = [labels[key] for key in X_train]
+        y_val = [labels[key] for key in X_val]
+        y_test = [labels[key] for key in X_test]
+
 
         fps = glob(osp.join(self.raw_dir, 'hippocampus/*.ply'))
         '''

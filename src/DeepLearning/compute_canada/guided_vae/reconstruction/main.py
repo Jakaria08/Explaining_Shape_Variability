@@ -147,149 +147,136 @@ up_transform_list = [
     for up_transform in tmp['up_transform']
 ]
 
-def objective(trial):
+args.epochs = 100
+args.batch_size = 16
+args.wcls = 47
+args.beta = 0.001620597425991221
+args.lr = 0.00047907102566047957
+args.lr_decay = 0.9299999999999999
+args.delta = 0.30000000000000004
+args.decay_step = 7
+args.latent_channels = 12
+args.threshold = 0.035
+args.temperature = 1
 
-    args.epochs = 100
-    args.batch_size = 16
-    args.wcls = 47
-    args.beta = 0.001620597425991221
-    args.lr = 0.00047907102566047957
-    args.lr_decay = 0.9299999999999999
-    args.delta = 0.30000000000000004
-    args.decay_step = 7
-    args.latent_channels = 12
-    args.threshold = 0.035
-    args.temperature = 1
+sequence_length = 28
+args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
-    sequence_length = 28
-    args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
+dilation = 2
+args.dilation = [dilation, dilation, dilation, dilation]
 
-    dilation = 2
-    args.dilation = [dilation, dilation, dilation, dilation]
-    
-    out_channel = 16
-    args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
-    print(args)    
+out_channel = 16
+args.out_channels = [out_channel, out_channel, out_channel, 2*out_channel]
+print(args)    
 
-    model = AE(args.in_channels, args.out_channels, args.latent_channels,
-            spiral_indices_list, down_transform_list,
-            up_transform_list).to(device)
+model = AE(args.in_channels, args.out_channels, args.latent_channels,
+        spiral_indices_list, down_transform_list,
+        up_transform_list).to(device)
 
-    print('Number of parameters: {}'.format(utils.count_parameters(model)))
-    print(model)
+print('Number of parameters: {}'.format(utils.count_parameters(model)))
+print(model)
 
-    optimizer = torch.optim.Adam(model.parameters(),
-                                    lr=args.lr,
-                                    weight_decay=args.weight_decay)
+optimizer = torch.optim.Adam(model.parameters(),
+                                lr=args.lr,
+                                weight_decay=args.weight_decay)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                args.decay_step,
-                                                gamma=args.lr_decay)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                            args.decay_step,
+                                            gamma=args.lr_decay)
 
-    args.guided = False
-    args.guided_contrastive_loss = False
-    args.attribute_loss = False
-    args.correlation_loss = False
+args.guided = False
+args.guided_contrastive_loss = False
+args.attribute_loss = True
+args.correlation_loss = False
 
-    run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
-        writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.attribute_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.threshold)
+run(model, train_loader, val_loader, args.epochs, optimizer, scheduler,
+    writer, device, args.beta, args.wcls, args.guided, args.guided_contrastive_loss, args.correlation_loss, args.attribute_loss, args.latent_channels, args.weight_decay_c, args.temperature, args.delta, args.threshold)
 
-    euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
+euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
 
-    angles = []
-    thick = []
-    latent_codes = []
-    re_pre = []
-    with torch.no_grad():
-        for i, data in enumerate(test_loader):
-            x = data.x.to(device)
-            y = data.y.to(device)
-            recon, mu, log_var, re, re_2 = model(x)
-            z = model.reparameterize(mu, log_var)
-            latent_codes.append(z)
-            angles.append(y[:, :, 1])
-            thick.append(y[:, :, 0]) 
-            re_pre.append(re)
-    latent_codes = torch.concat(latent_codes)
-    angles = torch.concat(angles).view(-1,1)
-    thick = torch.concat(thick).view(-1,1)
-    re_pre = torch.concat(re_pre).view(-1,1)
-    #print(angles.cpu().numpy().shape)
-    #print(latent_codes.cpu().numpy().shape)
-    #print(thick.cpu().numpy().shape)
-    #print(angles.cpu().numpy())
-    #print(latent_codes.cpu().numpy())
-    #print(thick.cpu().numpy())
-    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
-    #print(angles.cpu().numpy())
-    #print(latent_codes.cpu().numpy())
-    #print(thick.cpu().numpy())
+angles = []
+thick = []
+latent_codes = []
+re_pre = []
+with torch.no_grad():
+    for i, data in enumerate(test_loader):
+        x = data.x.to(device)
+        y = data.y.to(device)
+        recon, mu, log_var, re, re_2 = model(x)
+        z = model.reparameterize(mu, log_var)
+        latent_codes.append(z)
+        angles.append(y[:, :, 1])
+        thick.append(y[:, :, 0]) 
+        re_pre.append(re)
+latent_codes = torch.concat(latent_codes)
+angles = torch.concat(angles).view(-1,1)
+thick = torch.concat(thick).view(-1,1)
+re_pre = torch.concat(re_pre).view(-1,1)
+#print(angles.cpu().numpy().shape)
+#print(latent_codes.cpu().numpy().shape)
+#print(thick.cpu().numpy().shape)
+#print(angles.cpu().numpy())
+#print(latent_codes.cpu().numpy())
+#print(thick.cpu().numpy())
+latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
+#print(angles.cpu().numpy())
+#print(latent_codes.cpu().numpy())
+#print(thick.cpu().numpy())
 
-    # Pearson Correlation Coefficient
-    re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
-    pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
-    pcc_r = point_biserial_correlation(latent_codes.cpu().numpy(), angles.view(-1).cpu().numpy())
-    pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
-    # SAP Score
-    sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
-    sap_score_thick = sap(factors=thick.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
+# Pearson Correlation Coefficient
+re_pre = (re_pre.cpu().numpy() >= 0.5).astype(int)
+pcc = accuracy_score(angles.view(-1).cpu().numpy(), re_pre)
+pcc_r = point_biserial_correlation(latent_codes.cpu().numpy(), angles.view(-1).cpu().numpy())
+pcc_thick = stats.pearsonr(thick.view(-1).cpu().numpy(), latent_codes[:,1].cpu().numpy())[0]
+# SAP Score
+sap_score = sap(factors=angles.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=False, regression=False)
+sap_score_thick = sap(factors=thick.cpu().numpy(), codes=latent_codes.cpu().numpy(), continuous_factors=True, regression=True)
 
-    print("")
-    print(f"Correlation: {pcc}")
-    print(f"Correlation R: {pcc_r}")
-    print(f"Correlation thick score: {pcc_thick}")
-    print(f"SAP Score:   {sap_score}")
-    print(f"SAP Score Label 2:   {sap_score_thick}")
-    print("")
+print("")
+print(f"Correlation: {pcc}")
+print(f"Correlation R: {pcc_r}")
+print(f"Correlation thick score: {pcc_thick}")
+print(f"SAP Score:   {sap_score}")
+print(f"SAP Score Label 2:   {sap_score_thick}")
+print("")
 
-    df = pd.DataFrame(latent_codes.cpu().numpy())
-    df1 = pd.DataFrame(angles.cpu().numpy())
-    df2 = pd.DataFrame(thick.cpu().numpy())
-    # File path for saving the data
-    excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/latent_codes.csv"
-    excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/angles.csv"
-    excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/thick.csv"
-    # Save the DataFrame to an Excel file
-    df.to_csv(excel_file_path_latent, index=False)
-    df1.to_csv(excel_file_path_angles, index=False)
-    df2.to_csv(excel_file_path_thick, index=False)
+df = pd.DataFrame(latent_codes.cpu().numpy())
+df1 = pd.DataFrame(angles.cpu().numpy())
+df2 = pd.DataFrame(thick.cpu().numpy())
+# File path for saving the data
+excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/latent_codes.csv"
+excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/angles.csv"
+excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/thick.csv"
+# Save the DataFrame to an Excel file
+df.to_csv(excel_file_path_latent, index=False)
+df1.to_csv(excel_file_path_angles, index=False)
+df2.to_csv(excel_file_path_thick, index=False)
 
-    message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | Model | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:d} |'.format(args.latent_channels, pcc, pcc_r,
-                                                    sap_score, pcc_thick, sap_score_thick, euclidean_distance, trial.number)
+message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 | SAP_2 | Euclidean Distance | :  | {:d} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} | {:.3f} |'.format(args.latent_channels, pcc, pcc_r,
+                                                sap_score, pcc_thick, sap_score_thick, euclidean_distance)
 
 
-    out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/test.txt'
-    with open(out_error_fp, 'a') as log_file:
-        log_file.write('{:s}\n'.format(message))
+out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/test.txt'
+with open(out_error_fp, 'a') as log_file:
+    log_file.write('{:s}\n'.format(message))
 
-    if sap_score >= 0:
-        model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/{trial.number}/"
-        os.makedirs(model_path)
-        torch.save(sap_score, f"{model_path}sap_score.pt") 
-        torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
+if sap_score >= 0:
+    model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/"
+    os.makedirs(model_path)
+    torch.save(sap_score, f"{model_path}sap_score.pt") 
+    torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
 
-        torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
-        torch.save(args.in_channels, f"{model_path}in_channels.pt")
-        torch.save(args.out_channels, f"{model_path}out_channels.pt")
-        torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
-        torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
-        torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
-        torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
-        torch.save(meshdata.std, f"{model_path}std.pt")        
-        torch.save(meshdata.mean, f"{model_path}mean.pt")        
-        torch.save(meshdata.template_face, f"{model_path}faces.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
-        shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
+    torch.save(model.state_dict(), f"{model_path}model_state_dict.pt")
+    torch.save(args.in_channels, f"{model_path}in_channels.pt")
+    torch.save(args.out_channels, f"{model_path}out_channels.pt")
+    torch.save(args.latent_channels, f"{model_path}latent_channels.pt")
+    torch.save(spiral_indices_list, f"{model_path}spiral_indices_list.pt")
+    torch.save(up_transform_list, f"{model_path}up_transform_list.pt")
+    torch.save(down_transform_list, f"{model_path}down_transform_list.pt")
+    torch.save(meshdata.std, f"{model_path}std.pt")        
+    torch.save(meshdata.mean, f"{model_path}mean.pt")        
+    torch.save(meshdata.template_face, f"{model_path}faces.pt")
+    shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/processed/train_val_test_files.pt", f"{model_path}train_val_test_files.pt")
+    shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/reconstruction/network.py", f"{model_path}network.py")
+    shutil.copy("/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/conv/spiralconv.py", f"{model_path}spiralconv.py")
 
-
-    return euclidean_distance, sap_score, sap_score_thick
-
-class LogAfterEachTrial:
-    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
-        trials = study.trials
-        torch.save(trials, "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_contrastive_inhib/intermediate_trials.pt")
-
-log_trials = LogAfterEachTrial()
-study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-study.optimize(objective, n_trials=1000, callbacks=[log_trials])
