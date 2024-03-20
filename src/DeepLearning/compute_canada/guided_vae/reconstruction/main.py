@@ -244,9 +244,9 @@ df = pd.DataFrame(latent_codes.cpu().numpy())
 df1 = pd.DataFrame(angles.cpu().numpy())
 df2 = pd.DataFrame(thick.cpu().numpy())
 # File path for saving the data
-excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/latent_codes.csv"
-excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/angles.csv"
-excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/thick.csv"
+excel_file_path_latent = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited_tle/latent_codes.csv"
+excel_file_path_angles = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited_tle/angles.csv"
+excel_file_path_thick = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited_tle/thick.csv"
 # Save the DataFrame to an Excel file
 df.to_csv(excel_file_path_latent, index=False)
 df1.to_csv(excel_file_path_angles, index=False)
@@ -256,12 +256,12 @@ message = 'Latent Channels | Correlation | Correlation R | SAP | Correlation_2 |
                                                 sap_score, pcc_thick, sap_score_thick, euclidean_distance)
 
 
-out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/test.txt'
+out_error_fp = '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited_tle/test.txt'
 with open(out_error_fp, 'a') as log_file:
     log_file.write('{:s}\n'.format(message))
 
 if sap_score >= 0:
-    model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited/"
+    model_path = f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/hippocampus/models_attribute_age_limited_tle/"
     #os.makedirs(model_path)
     torch.save(sap_score, f"{model_path}sap_score.pt") 
     torch.save(sap_score_thick, f"{model_path}sap_score_thick.pt") 
