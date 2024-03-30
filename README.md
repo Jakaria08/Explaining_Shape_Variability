@@ -16,7 +16,23 @@ This repository contains the code and resources for the paper: **Disentangling H
 
 # Code
 
-Explain briefly what the code does and how it is organized. Provide instructions for running and using the code.
+The code is organized in the following hierarchy:
+
+```Explaining_Shape_Variability/
+├─ doc/
+├─ figures/
+├─ preprocessing/
+├─ src/
+│ ├─ DeepLearning/
+│ │ ├─ compute_canada/
+│ │ │ ├─ guided_vae
+│ │ │ │ ├─ conv/
+│ │ │ │ ├─ datasets/
+│ │ │ │ ├─ reconstructions/
+│ │ │ │ ├─ utils/
+├─ synthetic_data/
+├─ utils/
+```
 
 ## Models
 
