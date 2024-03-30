@@ -7,7 +7,7 @@ This repository contains the code and resources for the paper: **Disentangling H
 1. [Code](#code)
     - [Models](#models)
     - [Data Processing](#data-processing)
-    - [Evaluation](#evaluation)
+    - [Synthetic Torus Data Generation](#synthetic-torus-data-generation)
 2. [Setup and Commands](#setup-and-commands)
 3. [Data](#data)
 4. [Trained Models](#trained-models)
@@ -38,7 +38,7 @@ The code is organized in the following hierarchy (Only the directory structure i
 
 Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing#readme). Registration is done on Compute Canada GPU cluster.
 
-## Evaluation
+## Synthetic Torus Data Generation
 
 Detail the steps involved in the evaluation. Include any scripts or tools provided in the repository for these purposes.
 
