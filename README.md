@@ -24,7 +24,7 @@ Describe the models used in your research and how to use them. Include any speci
 
 ## Data Processing
 
-Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing] (https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing)
+Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing#readme))
 
 ## Evaluation
 
