@@ -28,15 +28,11 @@ The code is organized in the following hierarchy (Only the directory structure i
 │ │ │ ├─ guided_vae
 │ │ │ │ ├─ conv/
 │ │ │ │ ├─ datasets/
-│ │ │ │ ├─ reconstructions/
+│ │ │ │ ├─ reconstruction/
 │ │ │ │ ├─ utils/
 ├─ synthetic_data/
 ├─ utils/
 ```
-
-## Models
-
-Describe the models used in your research and how to use them. Include any specific details about model architecture, training procedures, and usage instructions.
 
 ## Data Processing
 
