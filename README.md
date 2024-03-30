@@ -16,15 +16,27 @@ This repository contains the code and resources for the paper: **Disentangling H
 
 # Code
 
-Explain briefly what the code does and how it is organized. Provide instructions for running and using the code.
+The code is organized in the following hierarchy (Only the directory structure is shown without the files for clarity):
 
-## Models
-
-Describe the models used in your research and how to use them. Include any specific details about model architecture, training procedures, and usage instructions.
+```Explaining_Shape_Variability/
+├─ doc/
+├─ figures/
+├─ preprocessing/
+├─ src/
+│ ├─ DeepLearning/
+│ │ ├─ compute_canada/
+│ │ │ ├─ guided_vae
+│ │ │ │ ├─ conv/
+│ │ │ │ ├─ datasets/
+│ │ │ │ ├─ reconstruction/
+│ │ │ │ ├─ utils/
+├─ synthetic_data/
+├─ utils/
+```
 
 ## Data Processing
 
-Detail the steps involved in data processing. Include any scripts or tools provided in the repository for these purposes.
+Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing#readme). Registration is done on Compute Canada GPU cluster.
 
 ## Evaluation
 
