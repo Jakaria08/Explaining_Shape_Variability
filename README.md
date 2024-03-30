@@ -16,7 +16,7 @@ This repository contains the code and resources for the paper: **Disentangling H
 
 # Code
 
-The code is organized in the following hierarchy:
+The code is organized in the following hierarchy (Only the directory structure is shown without the files for clarity):
 
 ```Explaining_Shape_Variability/
 ├─ doc/
