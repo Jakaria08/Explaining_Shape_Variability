@@ -21,6 +21,9 @@ utils/__pycache__/
 
 src/DeepLearning/compute_canada/mesh/
 src/DeepLearning/compute_canada/guided_vae/data/
+src/DeepLearning/compute_canada/guided_vae/reconstruction/__pycache__
+src/DeepLearning/compute_canada/guided_vae/reconstruction/.test_target.txt.swp
+src/ShapeWorks/
 src/ShapeWorks/d/
 src/ShapeWorks/data/
 src/ShapeWorks/groomed/
