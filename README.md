@@ -24,7 +24,7 @@ Describe the models used in your research and how to use them. Include any speci
 
 ## Data Processing
 
-Detail the steps involved in data processing. Include any scripts or tools provided in the repository for these purposes.
+Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (grooming and registration) can be found at [Preprecessing](#https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing)
 
 ## Evaluation
 
