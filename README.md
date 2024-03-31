@@ -5,7 +5,6 @@ This repository contains the code and resources for the paper: **Disentangling H
 ## Table of Contents
 
 1. [Code](#code)
-    - [Models](#models)
     - [Data Processing](#data-processing)
     - [Synthetic Torus Data Generation](#synthetic-torus-data-generation)
 2. [Setup and Commands](#setup-and-commands)
