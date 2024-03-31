@@ -12,7 +12,6 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
     - [Data Processing](#data-processing)
     - [Synthetic Torus Data Generation](#synthetic-torus-data-generation)
 2. [Setup and Commands](#setup-and-commands)
-3. [Data](#data)
 4. [Trained Models](#trained-models)
 5. [Supplementary Material](#supplementary-material)
     - [Visualizations](#visualizations)
@@ -50,9 +49,9 @@ Required packages to run the code can be found [here](https://github.com/Jakaria
 
 The `data/CoMA/` directory needs to be created under `guided_vae/`. Four folders `processed/`, `raw/`, `template/`, and `transform/` needs to be created under `data/CoMA/`. Hippocampus and synthetic torus data should be stored under `raw/` folder like `raw/hippocampus/` or `raw/torus`. The template mesh shape that was generated or selected in the synthetic data generation or preprocessing steps, needs to be stored under the `template/` folder.
 
-# Trained Models
+To train and test different models run the following command under the `reconstruction/` directory.
 
-If applicable, provide pre-trained models and instructions on how to use them for prediction or further training.
+`python main.py`
 
 # Supplementary Material
 
