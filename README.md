@@ -35,7 +35,7 @@ The code is organized in the following hierarchy (Only the directory structure i
 
 ## Data Processing
 
-Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing#readme). Registration is done on Compute Canada GPU cluster.
+Hippocampus data initially has DTI scans with segmentation masks saved in .nii files. 3D meshes are created from the files and registered to a template shape. Details of preprocessing (scripts for grooming and registration of the Hippocampus data and requirement.txt files) can be found at [Preprecessing](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing) and corresponding ReadMe file is [Preprocessing README](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/preprocessing#readme). Registration is done on Compute Canada GPU cluster. The hippocampus data is confidential and cannot be shared, the preprocessing scripts can be utilized for any publicly available MRI data that includes hippocampus segmentation.
 
 ## Synthetic Torus Data Generation
 
@@ -44,10 +44,6 @@ Synthetic torus data generation by a jupyter notebook is stored [here](https://g
 # Setup and Commands
 
 Provide instructions on setting up the development environment and executing key commands. Include dependencies, software versions, and any other relevant information.
-
-# Data
-
-Outline the data used in your research. Include instructions on how to access and preprocess the data.
 
 # Trained Models
 
