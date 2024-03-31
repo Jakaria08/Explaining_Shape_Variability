@@ -40,7 +40,7 @@ Hippocampus data initially has DTI scans with segmentation masks saved in .nii f
 
 ## Synthetic Torus Data Generation
 
-Detail the steps involved in the evaluation. Include any scripts or tools provided in the repository for these purposes.
+Synthetic torus data generation by a jupyter notebook is stored [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/synthetic_data). There are other Python scripts and README files for different synthetic data generation.
 
 # Setup and Commands
 
