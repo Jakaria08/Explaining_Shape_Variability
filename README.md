@@ -43,9 +43,9 @@ Synthetic torus data generation by a jupyter notebook is stored [here](https://g
 
 # Setup and Commands
 
-Required packages to run the code can be found [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning/compute_canada) and [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning). We ran the code in both Compute Canada and the local GPU machine. Setup instructions for both options can be found here.
+Required packages to run the code can be found [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning/compute_canada) and [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning). We ran the code in both Compute Canada and the local GPU machine. Setup instructions for both options can be found in the above-mentioned links.
 
-The `data/CoMA/` directory needs to be created under `guided_vae/`. Four folders `processed/`, `raw/`, `template/`, and `transform/` needs to be created under `data/CoMA/`. Hippocampus and synthetic torus data should be stored under `raw/` folder like `raw/hippocampus/` or `raw/torus`
+The `data/CoMA/` directory needs to be created under `guided_vae/`. Four folders `processed/`, `raw/`, `template/`, and `transform/` needs to be created under `data/CoMA/`. Hippocampus and synthetic torus data should be stored under `raw/` folder like `raw/hippocampus/` or `raw/torus`. The template mesh shape that was generated or selected in the synthetic data generation or preprocessing steps, needs to be stored under the `template/` folder.
 
 # Trained Models
 
