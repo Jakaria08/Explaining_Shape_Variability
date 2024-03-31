@@ -4,7 +4,7 @@ This repository contains the code and resources for the paper: **Disentangling H
 
 ![overall_architecture_update.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/overall_architecture_update.png)
 
-The overall architecture of our method. We have graph VAE with an encoder $f_\phi(x)$ and decoder $f_\theta(z)$ where $x$ is the input 3D mesh and $z$ represents the latent space. $L_{vae}$ represents the VAE loss that combines reconstruction and KL divergence loss. Another two losses are classification loss $L_{contr}^{cls}$ and regression loss $L_{contr}^{reg}$, where a specific latent variable is disentangled for a specific feature (continuous or discrete). We use the first variable for contrastive classification loss ($z_{1}$ corresponds to binary labels, and the rest variables are uncorrelated to the labels). The second variable $z_{2}$ corresponds to regression loss, and the rest variables are uncorrelated to the continuous labels. 
+Figure: The overall architecture of our method. We have graph VAE with an encoder $f_\phi(x)$ and decoder $f_\theta(z)$ where $x$ is the input 3D mesh and $z$ represents the latent space. $L_{vae}$ represents the VAE loss that combines reconstruction and KL divergence loss. Another two losses are classification loss $L_{contr}^{cls}$ and regression loss $L_{contr}^{reg}$, where a specific latent variable is disentangled for a specific feature (continuous or discrete). We use the first variable for contrastive classification loss ($z_{1}$ corresponds to binary labels, and the rest variables are uncorrelated to the labels). The second variable $z_{2}$ corresponds to regression loss, and the rest variables are uncorrelated to the continuous labels. 
 
 ## Table of Contents
 
