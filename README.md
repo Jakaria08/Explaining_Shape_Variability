@@ -12,9 +12,10 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
     - [Data Processing](#data-processing)
     - [Synthetic Torus Data Generation](#synthetic-torus-data-generation)
 2. [Setup and Commands](#setup-and-commands)
-4. [Trained Models](#trained-models)
-5. [Supplementary Material](#supplementary-material)
-    - [Visualizations](#visualizations)
+3. [Trained Models](#trained-models)
+4. [Visualizations](#visualizations)
+   - [Torus Data](torus-data)
+   - [Hippocampal Volume Change with Age and Multiple Sclerosis](hippocampal-volume-change-with-age-and-multiple-sclerosis)
 
 # Code
 
@@ -49,17 +50,17 @@ Required packages to run the code can be found [here](https://github.com/Jakaria
 
 The `data/CoMA/` directory needs to be created under `guided_vae/`. Four folders `processed/`, `raw/`, `template/`, and `transform/` needs to be created under `data/CoMA/`. Hippocampus and synthetic torus data should be stored under `raw/` folder like `raw/hippocampus/` or `raw/torus`. The template mesh shape that was generated or selected in the synthetic data generation or preprocessing steps, needs to be stored under the `template/` folder.
 
-To train and test different models run the following command under the `reconstruction/` directory.
+To train, validate, and test different models run the following command under the `reconstruction/` directory.
 
 `python main.py`
 
-It will show the training and testing results with default arguments reported in the paper. The arguments can be changed and set from the command line according to the line number `20` to `66` from `main.py`.
+It will show the training and testing results with default arguments (hyperparameters) reported in the paper. The arguments can be changed and set from the command line according to the line number `20` to `66` from `main.py`. The hyperparameters are trained using `Optuna` and the process is [here](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/test2inhib_test_contrastive_inhibition/src/DeepLearning/compute_canada/guided_vae/reconstruction/main.py#L148)
 
-# Supplementary Material
+The testing script can test multiple saved models in a specified directory and the following command is needed.
 
-Include any supplementary material related to the paper, such as additional experiments, analyses, or results.
+`python test.py`
 
-## Visualization
-
-Include visualizations.
+# Visualization
+## Torus Data
+## Hippocampal Volume Change with Age and Multiple Sclerosis
 
