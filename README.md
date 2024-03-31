@@ -22,7 +22,6 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
 The code is organized in the following hierarchy (Only the directory structure is shown without the files for clarity):
 
 ```Explaining_Shape_Variability/
-├─ doc/
 ├─ figures/
 ├─ preprocessing/
 ├─ src/
