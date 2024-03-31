@@ -53,6 +53,8 @@ To train and test different models run the following command under the `reconstr
 
 `python main.py`
 
+It will show the training and testing results with default arguments reported in the paper. The arguments can be changed and set from the command line according to the line number `20` to `66` from `main.py`.
+
 # Supplementary Material
 
 Include any supplementary material related to the paper, such as additional experiments, analyses, or results.
