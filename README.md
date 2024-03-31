@@ -14,8 +14,8 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
 2. [Setup and Commands](#setup-and-commands)
 3. [Trained Models](#trained-models)
 4. [Visualizations](#visualizations)
-   - [Torus Data](torus-data)
-   - [Hippocampal Volume Change with Age and Multiple Sclerosis](hippocampal-volume-change-with-age-and-multiple-sclerosis)
+   - [Torus Data](#torus-data)
+   - [Hippocampal Volume Change with Age and Multiple Sclerosis](#hippocampal-volume-change-with-age-and-multiple-sclerosis)
 
 # Code
 
@@ -60,7 +60,7 @@ The testing script can test multiple saved models in a specified directory and t
 
 `python test.py`
 
-# Visualization
+# Visualizations
 ## Torus Data
 ## Hippocampal Volume Change with Age and Multiple Sclerosis
 
