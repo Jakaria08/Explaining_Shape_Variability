@@ -60,8 +60,10 @@ The testing script can test multiple saved models in a specified directory and t
 
 `python test.py`
 
-# Trained Models
-Trained model for supervised contrastive VAE: [Link](https://drive.google.com/file/d/1M5BCEtANJcPHCGlkGTuCG8A2c3FT1QPt/view?usp=sharing)
+Python scripts for metric calculations and visualizations are [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/utils)
+
+# Trained Model
+The trained model for supervised contrastive VAE: [Link](https://drive.google.com/file/d/1M5BCEtANJcPHCGlkGTuCG8A2c3FT1QPt/view?usp=sharing)
 
 # Visualizations
 ## Torus Data
