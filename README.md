@@ -63,5 +63,8 @@ The testing script can test multiple saved models in a specified directory and t
 # Visualizations
 ## Torus Data
 ![total_vis.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/total_vis.png)
-## Hippocampal Volume Change with Age and Multiple Sclerosis
 
+Figure 2: On the left side of the figure, we show the combination of reconstructions and original hippocampus (left and right hippocampus) meshes from the dataset using our proposed model. The dark blue indicates a very small deviation between the reconstruction and the original mesh. On the right side, we show the original hippocampus data.
+
+## Hippocampal Volume Change with Age and Multiple Sclerosis
+![MS_range_vol_corrected.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/MS_range_vol_corrected.png)
