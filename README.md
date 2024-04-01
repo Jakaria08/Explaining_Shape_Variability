@@ -15,7 +15,7 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
 3. [Trained Models](#trained-models)
 4. [Visualizations](#visualizations)
    - [Torus Data](#torus-data)
-   - [Hippocampal Volume Change with Age and Multiple Sclerosis (MS)](#hippocampal-volume-change-with-age-and-multiple-sclerosis_(ms))
+   - [Hippocampal Volume Change with Age and Multiple Sclerosis (MS)](#hippocampal-volume-change-with-age-and-multiple-sclerosis-(ms))
 
 # Code
 
