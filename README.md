@@ -46,7 +46,7 @@ Synthetic torus data generation by a jupyter notebook is stored [here](https://g
 
 # Setup and Commands
 
-Required packages to run the code can be found [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning/compute_canada) and [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning). We ran the code in both Compute Canada and the local GPU machine. Setup instructions for both options can be found in the above-mentioned links.
+Required packages to run the code can be found [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning/compute_canada) and [here].(https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/src/DeepLearning). We ran the code in both Compute Canada and the local GPU machine. Setup instructions for both options can be found in the above-mentioned links.
 
 The `data/CoMA/` directory needs to be created under `guided_vae/`. Four folders `processed/`, `raw/`, `template/`, and `transform/` needs to be created under `data/CoMA/`. Hippocampus and synthetic torus data should be stored under `raw/` folder like `raw/hippocampus/` or `raw/torus`. The template mesh shape that was generated or selected in the synthetic data generation or preprocessing steps, needs to be stored under the `template/` folder.
 
@@ -54,13 +54,13 @@ To train, validate, and test different models run the following command under th
 
 `python main.py`
 
-It will show the training and testing results with default arguments (hyperparameters) reported in the paper. The arguments can be changed and set from the command line according to the line number `20` to `66` from `main.py`. The hyperparameters are trained using `Optuna` and the process is [here](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/test2inhib_test_contrastive_inhibition/src/DeepLearning/compute_canada/guided_vae/reconstruction/main.py#L148)
+It will show the training and testing results with default arguments (hyperparameters) reported in the paper. The arguments can be changed and set from the command line according to the line number `20` to `66` from `main.py`. The hyperparameters are trained using `Optuna` and the process is [here].(https://github.com/Jakaria08/Explaining_Shape_Variability/blob/test2inhib_test_contrastive_inhibition/src/DeepLearning/compute_canada/guided_vae/reconstruction/main.py#L148)
 
 The testing script can test multiple saved models in a specified directory and the following command is needed.
 
 `python test.py`
 
-Python scripts for metric calculations and visualizations are [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/utils)
+Python scripts for metric calculations and visualizations are [here](https://github.com/Jakaria08/Explaining_Shape_Variability/tree/master/utils).
 
 # Trained Model
 The trained model for supervised contrastive VAE: [Link](https://drive.google.com/file/d/1M5BCEtANJcPHCGlkGTuCG8A2c3FT1QPt/view?usp=sharing)
