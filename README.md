@@ -62,5 +62,6 @@ The testing script can test multiple saved models in a specified directory and t
 
 # Visualizations
 ## Torus Data
+![total_vis.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/total_vis.png)
 ## Hippocampal Volume Change with Age and Multiple Sclerosis
 
