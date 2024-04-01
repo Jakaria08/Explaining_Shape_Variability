@@ -12,7 +12,7 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
     - [Data Processing](#data-processing)
     - [Synthetic Torus Data Generation](#synthetic-torus-data-generation)
 2. [Setup and Commands](#setup-and-commands)
-3. [Trained Models](#trained-models)
+3. [Trained Model](#trained-model)
 4. [Visualizations](#visualizations)
    - [Torus Data](#torus-data)
    - [Hippocampal Volume Change with Age and Multiple Sclerosis (MS)](#hippocampal-volume-change-with-age-and-multiple-sclerosis-ms)
