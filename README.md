@@ -15,7 +15,7 @@ Figure 1: The overall architecture of our method. We have graph VAE with an enco
 3. [Trained Models](#trained-models)
 4. [Visualizations](#visualizations)
    - [Torus Data](#torus-data)
-   - [Hippocampal Volume Change with Age and Multiple Sclerosis](#hippocampal-volume-change-with-age-and-multiple-sclerosis)
+   - [Hippocampal Volume Change with Age and Multiple Sclerosis (MS)](#hippocampal-volume-change-with-age-and-multiple-sclerosis_(ms))
 
 # Code
 
@@ -66,5 +66,7 @@ The testing script can test multiple saved models in a specified directory and t
 
 Figure 2: On the left side of the figure, we show the combination of reconstructions and original hippocampus (left and right hippocampus) meshes from the dataset using our proposed model. The dark blue indicates a very small deviation between the reconstruction and the original mesh. On the right side, we show the original hippocampus data.
 
-## Hippocampal Volume Change with Age and Multiple Sclerosis
+## Hippocampal Volume Change with Age and Multiple Sclerosis (MS)
 ![MS_range_vol_corrected.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/MS_range_vol_corrected.png)
+
+Figure 3: Volume changes (between healthy and MS) are depicted in the first row by the intensity of the blue color and yellow represents the highest change in millimeters. The second row shows the healthy hippocampus. Ages are calculated by mapping the latent values and age range of the subjects of MS.
