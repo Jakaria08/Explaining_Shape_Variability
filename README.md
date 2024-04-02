@@ -1,6 +1,6 @@
 # Disentangling Hippocampal Shape Variations: A Study of Neurological Disorders Using Graph Variational Autoencoder with Contrastive Learning
 
-This repository contains the code and resources for the paper: **Disentangling Hippocampal Shape Variations: A Study of Neurological Disorders Using Graph Variational Autoencoder with Contrastive Learning** [arXiv Link].
+This repository contains the code and resources for the paper: **Disentangling Hippocampal Shape Variations: A Study of Neurological Disorders Using Graph Variational Autoencoder with Contrastive Learning** [arXiv Link](https://arxiv.org/pdf/2404.00785.pdf).
 
 ![overall_architecture_update.png](https://github.com/Jakaria08/Explaining_Shape_Variability/blob/master/figures/overall_architecture_update.png)
 
