@@ -4,7 +4,18 @@ from glob import glob
 from sklearn.model_selection import train_test_split
 import torch
 from torch_geometric.data import InMemoryDataset, extract_zip
-from utils.read import read_mesh
+try:
+    from utils.read import read_mesh
+except ImportError:
+    # Fallback when `utils` resolves to utils/utils.py instead of package.
+    import sys
+    from pathlib import Path
+
+    _utils_dir = Path(__file__).resolve().parents[1] / 'utils'
+    if str(_utils_dir) not in sys.path:
+        sys.path.insert(0, str(_utils_dir))
+    from read import read_mesh
+
 
 from tqdm import tqdm
 

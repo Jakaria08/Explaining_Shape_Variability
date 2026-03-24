@@ -1,4 +1,6 @@
 import openmesh as om
+import pandas as pd
+from pathlib import Path
 from datasets import CoMA
 
 
@@ -58,6 +60,7 @@ class MeshData(object):
         self.num_test_graph = len(self.test_dataset)
         self.mean = self.train_dataset.data.x.view(self.num_train_graph, -1, 3).mean(dim=0)
         self.std = self.train_dataset.data.x.view(self.num_train_graph, -1, 3).std(dim=0)
+        self.save_normalization_values()
         self.normalize()
 
     def normalize(self):
@@ -72,6 +75,31 @@ class MeshData(object):
             (self.test_dataset.data.x.view(self.num_test_graph, -1, 3) -
              self.mean) / self.std).view(-1, 3)
         print('Done!')
+
+    def save_normalization_values(self):
+        save_dir = Path(self.root) / 'saved_normalization_values'
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        mean_np = self.mean.detach().cpu().numpy()
+        std_np = self.std.detach().cpu().numpy()
+
+        if mean_np.shape != std_np.shape:
+            raise RuntimeError(f'mean/std shape mismatch: {mean_np.shape} vs {std_np.shape}')
+
+        num_vertices = mean_np.shape[0]
+        df = pd.DataFrame({
+            'vertex_index': list(range(num_vertices)),
+            'mean_x': mean_np[:, 0],
+            'mean_y': mean_np[:, 1],
+            'mean_z': mean_np[:, 2],
+            'std_x': std_np[:, 0],
+            'std_y': std_np[:, 1],
+            'std_z': std_np[:, 2],
+        })
+
+        out_path = save_dir / 'mean_std_per_vertex.csv'
+        df.to_csv(out_path, index=False)
+        print(f'Saved normalization CSV: {out_path}')
 
     def save_mesh(self, fp, x):
         x = x * self.std + self.mean

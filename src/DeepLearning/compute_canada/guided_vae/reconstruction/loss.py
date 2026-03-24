@@ -251,61 +251,96 @@ class SNNLoss(nn.Module):
     
 # SNNL loss reg modified fast
 class SNNRegLoss(nn.Module):
-    def __init__(self, T, lamda1, lamda2, threshold):
+    def __init__(self, T, *args):
         super(SNNRegLoss, self).__init__()
         self.T = T
-        self.lamda1 = lamda1
-        self.lamda2 = lamda2
         self.STABILITY_EPS = 0.00001
-        self.threshold = .025
+
+        # Backward-compatible argument parsing:
+        # - New usage (pasted version): SNNRegLoss(T, threshold)
+        # - Legacy usage in this repo: SNNRegLoss(T, lamda1, lamda2, threshold)
+        if len(args) == 1:
+            self.threshold = float(args[0])
+        elif len(args) == 3:
+            self.threshold = float(args[2])
+        else:
+            raise ValueError(
+                'SNNRegLoss expects either (T, threshold) or '
+                '(T, lamda1, lamda2, threshold).'
+            )
 
     def forward(self, x, y):
+        device = x.device
         b = x.size(0)  # Batch size
-        y = y.squeeze()
+        y = y.squeeze().to(device)
 
-        x_expanded = x[:,1].unsqueeze(1)  # Expand dimensions for broadcasting
+        x_expanded = x[:, 1].unsqueeze(1)  # Expand dimensions for broadcasting
         y_expanded = y.unsqueeze(0)
 
         abs_diff_matrix = torch.abs(y_expanded - y_expanded.t())
         same_class_mask = abs_diff_matrix <= self.threshold
 
-        #squared_distances = (x_expanded - x_expanded.t()) ** 2
-        squared_distances = torch.matmul(x_expanded, x_expanded.t())
-        exp_distances = torch.exp(squared_distances / self.T)
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
-        #print(exp_distances)
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device=device))
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
-        # remaining elements
-        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
-        x_expanded = x[:,0].unsqueeze(1)
-        #squared_distances = (x_expanded - x_expanded.t()) ** 2
-        squared_distances = torch.matmul(x_expanded, x_expanded.t())
-        exp_distances = torch.exp(squared_distances / self.T)
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+
+        # Remaining latent dimensions (excluding index 1) averaged together
+        exp_distances_all = torch.zeros_like(exp_distances, device=device)
+
+        x_expanded = x[:, 0].unsqueeze(1)
+        squared_distances = (x_expanded - x_expanded.t()) ** 2
+        exp_distances = torch.exp(-(squared_distances / self.T))
+        exp_distances = exp_distances * (1 - torch.eye(b, device=device))
         exp_distances = exp_distances * same_class_mask
         exp_distances_all = exp_distances_all + exp_distances
+
         for i in range(2, x.shape[1]):
-            x_expanded = x[:,i].unsqueeze(1)
-            #squared_distances = (x_expanded - x_expanded.t()) ** 2
-            squared_distances = torch.matmul(x_expanded, x_expanded.t())
-            exp_distances = torch.exp(squared_distances / self.T)
-            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            x_expanded = x[:, i].unsqueeze(1)
+            squared_distances = (x_expanded - x_expanded.t()) ** 2
+            exp_distances = torch.exp(-(squared_distances / self.T))
+            exp_distances = exp_distances * (1 - torch.eye(b, device=device))
             exp_distances = exp_distances * same_class_mask
             exp_distances_all = exp_distances_all + exp_distances
 
-        #print(denominator)
-        denominator1 = exp_distances_all/float(x.shape[1]-1)
+        denominator1 = exp_distances_all / float(x.shape[1] - 1)
 
-        # Calculate class counts within the threshold
-        class_counts = torch.sum(same_class_mask, dim=1).float().to('cuda:1')
-        #print(class_counts)
-
-        lsn_loss = ((-torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
-                                                                            + (self.lamda2*denominator1.sum(dim=1))))))/class_counts).mean()
+        lsn_loss = -torch.log(
+            self.STABILITY_EPS
+            + (
+                numerator.sum(dim=1)
+                / (
+                    self.STABILITY_EPS
+                    + (0.5 * denominator.sum(dim=1))
+                    + (0.5 * denominator1.sum(dim=1))
+                )
+            )
+        ).mean()
 
         return lsn_loss
+
+class CovarianceLoss(nn.Module):
+    def __init__(self, eps=1e-12):
+        super(CovarianceLoss, self).__init__()
+        self.eps = float(eps)
+
+    def forward(self, z):
+        if z.dim() != 2:
+            z = z.view(z.size(0), -1)
+
+        b, d = z.shape
+        if b <= 1 or d <= 1:
+            return z.new_tensor(0.0)
+
+        z = z - z.mean(dim=0, keepdim=True)
+        denom = float(b - 1)
+        cov = (z.t() @ z) / (denom + self.eps)
+        offdiag = cov - torch.diag_embed(torch.diagonal(cov))
+
+        # Normalize by number of off-diagonal elements: d * (d - 1)
+        return (offdiag ** 2).sum() / (d * (d - 1))
 
 
 # Wasserstein loss proposed by nilanjan

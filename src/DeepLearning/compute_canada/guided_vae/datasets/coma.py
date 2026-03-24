@@ -4,7 +4,18 @@ from glob import glob
 from sklearn.model_selection import train_test_split
 import torch
 from torch_geometric.data import InMemoryDataset, extract_zip
-from utils.read import read_mesh
+try:
+    from utils.read import read_mesh
+except ImportError:
+    # Fallback when `utils` resolves to utils/utils.py instead of package.
+    import sys
+    from pathlib import Path
+
+    _utils_dir = Path(__file__).resolve().parents[1] / 'utils'
+    if str(_utils_dir) not in sys.path:
+        sys.path.insert(0, str(_utils_dir))
+    from read import read_mesh
+
 import random
 from tqdm import tqdm
 
@@ -91,7 +102,7 @@ class CoMA(InMemoryDataset):
     def process(self):
         print('Processing...')
 
-        labels = torch.load(f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/torus/labels.pt")
+        labels = torch.load(f"/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/calsnic_als/labels.pt")
 
         #X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), stratify=list(labels.values()), test_size=0.2, random_state=0)
         X_train, X_test, y_train, y_test = train_test_split(list(labels.keys()), list(labels.values()), test_size=0.2, random_state=28)
@@ -104,7 +115,7 @@ class CoMA(InMemoryDataset):
         #X_val = X_test[:51]
         #X_test_new = X_test[51:]
 
-        fps = glob(osp.join(self.raw_dir, 'torus/*.ply'))
+        fps = glob(osp.join(self.raw_dir, 'calsnic_als/*.ply'))
         '''
         if len(fps) == 0:
             extract_zip(self.raw_paths[0], self.raw_dir, log=False)
