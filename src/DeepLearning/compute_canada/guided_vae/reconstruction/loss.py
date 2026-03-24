@@ -251,10 +251,11 @@ class SNNLoss(nn.Module):
     
 # SNNL loss reg modified fast
 class SNNRegLoss(nn.Module):
-    def __init__(self, T, *args):
+    def __init__(self, T, *args, age_latent_index=0):
         super(SNNRegLoss, self).__init__()
         self.T = T
         self.STABILITY_EPS = 0.00001
+        self.age_latent_index = int(age_latent_index)
 
         # Backward-compatible argument parsing:
         # - New usage (pasted version): SNNRegLoss(T, threshold)
@@ -274,7 +275,13 @@ class SNNRegLoss(nn.Module):
         b = x.size(0)  # Batch size
         y = y.squeeze().to(device)
 
-        x_expanded = x[:, 1].unsqueeze(1)  # Expand dimensions for broadcasting
+        if self.age_latent_index < 0 or self.age_latent_index >= x.shape[1]:
+            raise ValueError(
+                f"age_latent_index={self.age_latent_index} is out of range for latent dim {x.shape[1]}"
+            )
+
+        target_index = self.age_latent_index
+        x_expanded = x[:, target_index].unsqueeze(1)  # Expand dimensions for broadcasting
         y_expanded = y.unsqueeze(0)
 
         abs_diff_matrix = torch.abs(y_expanded - y_expanded.t())
@@ -287,25 +294,20 @@ class SNNRegLoss(nn.Module):
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
 
-        # Remaining latent dimensions (excluding index 1) averaged together
-        exp_distances_all = torch.zeros_like(exp_distances, device=device)
-
-        x_expanded = x[:, 0].unsqueeze(1)
-        squared_distances = (x_expanded - x_expanded.t()) ** 2
-        exp_distances = torch.exp(-(squared_distances / self.T))
-        exp_distances = exp_distances * (1 - torch.eye(b, device=device))
-        exp_distances = exp_distances * same_class_mask
-        exp_distances_all = exp_distances_all + exp_distances
-
-        for i in range(2, x.shape[1]):
-            x_expanded = x[:, i].unsqueeze(1)
-            squared_distances = (x_expanded - x_expanded.t()) ** 2
-            exp_distances = torch.exp(-(squared_distances / self.T))
-            exp_distances = exp_distances * (1 - torch.eye(b, device=device))
-            exp_distances = exp_distances * same_class_mask
-            exp_distances_all = exp_distances_all + exp_distances
-
-        denominator1 = exp_distances_all / float(x.shape[1] - 1)
+        # Remaining latent dimensions (excluding target age index) averaged together
+        other_indices = [i for i in range(x.shape[1]) if i != target_index]
+        if len(other_indices) > 0:
+            exp_distances_all = torch.zeros_like(exp_distances, device=device)
+            for i in other_indices:
+                x_expanded = x[:, i].unsqueeze(1)
+                squared_distances = (x_expanded - x_expanded.t()) ** 2
+                exp_distances_i = torch.exp(-(squared_distances / self.T))
+                exp_distances_i = exp_distances_i * (1 - torch.eye(b, device=device))
+                exp_distances_i = exp_distances_i * same_class_mask
+                exp_distances_all = exp_distances_all + exp_distances_i
+            denominator1 = exp_distances_all / float(len(other_indices))
+        else:
+            denominator1 = torch.zeros_like(exp_distances, device=device)
 
         lsn_loss = -torch.log(
             self.STABILITY_EPS

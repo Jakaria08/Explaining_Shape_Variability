@@ -1,5 +1,8 @@
 import argparse
 import copy
+import csv
+import datetime
+import json
 import math
 import os
 import os.path as osp
@@ -12,18 +15,25 @@ import numpy as np
 import optuna
 import torch
 import torch.backends.cudnn as cudnn
+from optuna.trial import TrialState
 from psbody.mesh import Mesh
 from scipy import stats
 from torch.utils.data import Subset
 
 _THIS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _THIS_DIR.parent
+_UTILS_ROOT = _PROJECT_ROOT / 'utils'
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+if str(_UTILS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_UTILS_ROOT))
 
 from datasets import MeshData
 from reconstruction import AE, eval_error, run
-from utils import DataLoader, mesh_sampling, sap, utils
+from dataloader import DataLoader
+import mesh_sampling
+import utils as gv_utils
+from sap_holdout import sap_regression_holdout
 
 
 DEFAULT_WORK_DIR = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae"
@@ -94,7 +104,7 @@ def parse_args(argv=None):
 
     # objective / labels
     parser.add_argument('--age_label_index', type=int, default=1)
-    parser.add_argument('--age_latent_index', type=int, default=1)
+    parser.add_argument('--age_latent_index', type=int, default=0)
 
     # loss switches (requested setup: reg-SNN + covariance only)
     parser.add_argument('--guided', type=str2bool, default=False)
@@ -110,12 +120,20 @@ def parse_args(argv=None):
     parser.add_argument('--temperature', type=int, default=100)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--train_subset_fraction', type=float, default=1.0)
+    parser.add_argument('--print_epoch_objectives', type=str2bool, default=True)
+    parser.add_argument('--epoch_objective_interval', type=int, default=10)
 
     # paths
     parser.add_argument('--work_dir', type=str, default=DEFAULT_WORK_DIR)
     parser.add_argument('--models_root', type=str, default=DEFAULT_MODELS_ROOT)
     parser.add_argument('--trial_metrics_fp', type=str, default='')
     parser.add_argument('--intermediate_trials_fp', type=str, default='')
+    parser.add_argument('--trial_predictions_dir', type=str, default='')
+    parser.add_argument('--trial_models_dir', type=str, default='')
+    parser.add_argument('--study_summary_fp', type=str, default='')
+    parser.add_argument('--study_trials_csv_fp', type=str, default='')
+    parser.add_argument('--log_dir', type=str, default='')
+    parser.add_argument('--log_fp', type=str, default='')
 
     return parser.parse_args(argv)
 
@@ -125,14 +143,14 @@ def resolve_paths(args):
     args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
     args.checkpoints_dir = osp.join(args.out_dir, 'checkpoints')
 
-    utils.makedirs(args.out_dir)
-    utils.makedirs(args.checkpoints_dir)
-    utils.makedirs(args.models_root)
+    gv_utils.makedirs(args.out_dir)
+    gv_utils.makedirs(args.checkpoints_dir)
+    gv_utils.makedirs(args.models_root)
 
     if not args.trial_metrics_fp:
         args.trial_metrics_fp = osp.join(
             args.models_root,
-            f'trial_metrics_gpu{args.device_idx}_latent{args.latent_channels}.txt',
+            f'trial_metrics_gpu{args.device_idx}_latent{args.latent_channels}.csv',
         )
 
     if not args.intermediate_trials_fp:
@@ -140,6 +158,101 @@ def resolve_paths(args):
             args.models_root,
             f'intermediate_trials_gpu{args.device_idx}_latent{args.latent_channels}.pt',
         )
+
+    if not args.trial_predictions_dir:
+        args.trial_predictions_dir = osp.join(
+            args.models_root,
+            f'trial_predictions_gpu{args.device_idx}_latent{args.latent_channels}',
+        )
+
+    if not args.trial_models_dir:
+        args.trial_models_dir = osp.join(
+            args.models_root,
+            f'trial_models_gpu{args.device_idx}_latent{args.latent_channels}',
+        )
+
+    if not args.study_summary_fp:
+        args.study_summary_fp = osp.join(
+            args.models_root,
+            f'study_summary_gpu{args.device_idx}_latent{args.latent_channels}.json',
+        )
+
+    if not args.study_trials_csv_fp:
+        args.study_trials_csv_fp = osp.join(
+            args.models_root,
+            f'study_trials_gpu{args.device_idx}_latent{args.latent_channels}.csv',
+        )
+
+    if not args.log_dir:
+        args.log_dir = osp.join(args.models_root, 'logs')
+
+    if not args.log_fp:
+        args.log_fp = osp.join(
+            args.log_dir,
+            f'{args.exp_name}_gpu{args.device_idx}_latent{args.latent_channels}.log',
+        )
+
+    gv_utils.makedirs(args.trial_predictions_dir)
+    gv_utils.makedirs(args.trial_models_dir)
+    gv_utils.makedirs(args.log_dir)
+
+
+class TeeStream:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+        return len(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+    def isatty(self):
+        for stream in self.streams:
+            if hasattr(stream, 'isatty') and stream.isatty():
+                return True
+        return False
+
+
+def setup_logging(log_fp):
+    log_dir = osp.dirname(log_fp)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
+    log_handle = open(log_fp, 'a', buffering=1)
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sys.stdout = TeeStream(original_stdout, log_handle)
+    sys.stderr = TeeStream(original_stderr, log_handle)
+
+    print('=' * 80)
+    print(f"Log file: {log_fp}")
+    print(
+        "Run start: "
+        f"{datetime.datetime.now().isoformat(timespec='seconds')}"
+    )
+    print('=' * 80)
+
+    return log_handle, original_stdout, original_stderr
+
+
+def teardown_logging(log_handle, original_stdout, original_stderr):
+    try:
+        print('=' * 80)
+        print(
+            "Run end: "
+            f"{datetime.datetime.now().isoformat(timespec='seconds')}"
+        )
+        print('=' * 80)
+        sys.stdout.flush()
+        sys.stderr.flush()
+    finally:
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        log_handle.close()
 
 
 def load_or_generate_transform(template_fp, transform_fp):
@@ -166,7 +279,7 @@ def load_or_generate_transform(template_fp, transform_fp):
 
 def build_spiral_indices(transform_data, seq_length, dilation, device):
     return [
-        utils.preprocess_spiral(
+        gv_utils.preprocess_spiral(
             transform_data['face'][idx],
             seq_length[idx],
             transform_data['vertices'][idx],
@@ -178,11 +291,11 @@ def build_spiral_indices(transform_data, seq_length, dilation, device):
 
 def build_sparse_transforms(transform_data, device):
     down_transform_list = [
-        utils.to_sparse(down_transform).to(device)
+        gv_utils.to_sparse(down_transform).to(device)
         for down_transform in transform_data['down_transform']
     ]
     up_transform_list = [
-        utils.to_sparse(up_transform).to(device)
+        gv_utils.to_sparse(up_transform).to(device)
         for up_transform in transform_data['up_transform']
     ]
     return down_transform_list, up_transform_list
@@ -199,9 +312,9 @@ def build_loaders(meshdata, batch_size, subset_fraction, seed):
         train_dataset = Subset(meshdata.train_dataset, indices[:n_use])
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_eval_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     val_loader = DataLoader(meshdata.val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(meshdata.test_dataset, batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader, test_loader
+    return train_loader, train_eval_loader, val_loader
 
 
 def sanitize_metric(x, fallback=0.0):
@@ -211,53 +324,154 @@ def sanitize_metric(x, fallback=0.0):
     return x
 
 
-def evaluate_age_metrics(model, test_loader, device, age_label_index, age_latent_index):
+def compute_euclidean_distance(model, data_loader, device, meshdata):
+    model.eval()
+    model.training = False
+
+    errors = []
+    mean = meshdata.mean
+    std = meshdata.std
+
+    with torch.no_grad():
+        for data in data_loader:
+            x = data.x.to(device)
+            pred, _, _, _, _ = model(x)
+            num_graphs = data.num_graphs
+
+            reshaped_pred = (pred.view(num_graphs, -1, 3).cpu() * std) + mean
+            reshaped_x = (x.view(num_graphs, -1, 3).cpu() * std) + mean
+
+            reshaped_pred *= 300
+            reshaped_x *= 300
+
+            tmp_error = torch.sqrt(
+                torch.sum((reshaped_pred - reshaped_x) ** 2, dim=2)
+            )
+            errors.append(tmp_error)
+
+    if len(errors) == 0:
+        return 1e9
+
+    new_errors = torch.cat(errors, dim=0)
+    mean_error = new_errors.view((-1,)).mean().item()
+    return sanitize_metric(mean_error, fallback=1e9)
+
+
+def collect_latents_and_age(model, loader, device, age_label_index):
     ages = []
     latent_codes = []
 
+    model.eval()
+    model.training = False
+
     with torch.no_grad():
-        for data in test_loader:
+        for data in loader:
             x = data.x.to(device)
             y = data.y.to(device)
             _, mu, log_var, _, _ = model(x)
             z = model.reparameterize(mu, log_var)
-            latent_codes.append(z)
-            ages.append(y[:, :, age_label_index])
+            latent_codes.append(z.detach().cpu())
+            ages.append(y[:, :, age_label_index].view(-1, 1).detach().cpu())
 
     if len(latent_codes) == 0:
-        return 0.0, 0.0
+        return (
+            np.zeros((0, model.latent_channels), dtype=np.float32),
+            np.zeros((0, 1), dtype=np.float32),
+        )
 
-    latent_codes = torch.cat(latent_codes, dim=0)
-    ages = torch.cat(ages, dim=0).view(-1, 1)
+    latent_tensor = torch.cat(latent_codes, dim=0)
+    age_tensor = torch.cat(ages, dim=0)
 
-    latent_codes[torch.isnan(latent_codes) | torch.isinf(latent_codes)] = 0
+    latent_tensor[torch.isnan(latent_tensor) | torch.isinf(latent_tensor)] = 0
 
-    latent_np = latent_codes.detach().cpu().numpy()
-    age_np = ages.detach().cpu().numpy()
+    return latent_tensor.numpy(), age_tensor.numpy()
 
-    sap_age = sap(
-        factors=age_np,
-        codes=latent_np,
-        continuous_factors=True,
-        regression=True,
+
+def compute_corr_per_latent(latent_np, age_np):
+    age_vec = age_np.reshape(-1)
+    corrs = []
+
+    for i in range(latent_np.shape[1]):
+        latent_vec = latent_np[:, i]
+        if np.std(age_vec) < 1e-12 or np.std(latent_vec) < 1e-12:
+            corr = 0.0
+        else:
+            corr = stats.pearsonr(age_vec, latent_vec)[0]
+        corrs.append(sanitize_metric(corr, fallback=0.0))
+
+    return corrs
+
+
+def evaluate_age_metrics_holdout(
+    model,
+    train_eval_loader,
+    eval_loader,
+    device,
+    age_label_index,
+    age_latent_index,
+):
+    train_latent_np, train_age_np = collect_latents_and_age(
+        model=model,
+        loader=train_eval_loader,
+        device=device,
+        age_label_index=age_label_index,
+    )
+    eval_latent_np, eval_age_np = collect_latents_and_age(
+        model=model,
+        loader=eval_loader,
+        device=device,
+        age_label_index=age_label_index,
+    )
+
+    latent_dim = model.latent_channels
+
+    if train_latent_np.shape[0] == 0 or eval_latent_np.shape[0] == 0:
+        return {
+            'sap_age': 0.0,
+            'corr_target': 0.0,
+            'corr_per_latent': [0.0] * latent_dim,
+            'r2_per_latent': [0.0] * latent_dim,
+            'age_true_eval': eval_age_np.reshape(-1),
+            'age_pred_by_latent': np.zeros((latent_dim, eval_latent_np.shape[0]), dtype=np.float32),
+        }
+
+    sap_age, s_matrix, pred_matrix = sap_regression_holdout(
+        train_factors=train_age_np,
+        train_codes=train_latent_np,
+        eval_factors=eval_age_np,
+        eval_codes=eval_latent_np,
     )
     sap_age = sanitize_metric(sap_age, fallback=0.0)
 
-    age_vec = age_np.reshape(-1)
-    latent_vec = latent_np[:, age_latent_index]
-    if np.std(age_vec) < 1e-12 or np.std(latent_vec) < 1e-12:
-        corr_age_latent = 0.0
-    else:
-        corr_age_latent = stats.pearsonr(age_vec, latent_vec)[0]
-    corr_age_latent = sanitize_metric(corr_age_latent, fallback=0.0)
+    corr_per_latent = compute_corr_per_latent(eval_latent_np, eval_age_np)
+    corr_per_latent = [sanitize_metric(c, fallback=0.0) for c in corr_per_latent]
 
-    return sap_age, corr_age_latent
+    r2_per_latent = []
+    for i in range(latent_dim):
+        r2_per_latent.append(sanitize_metric(s_matrix[0, i], fallback=0.0))
+
+    if age_latent_index < 0 or age_latent_index >= latent_dim:
+        corr_target_raw = 0.0
+    else:
+        corr_target_raw = corr_per_latent[age_latent_index]
+    corr_target = abs(corr_target_raw)
+
+    return {
+        'sap_age': sap_age,
+        'corr_target': corr_target,
+        'corr_target_raw': corr_target_raw,
+        'corr_per_latent': corr_per_latent,
+        'r2_per_latent': r2_per_latent,
+        'age_true_eval': eval_age_np.reshape(-1),
+        'age_pred_by_latent': pred_matrix[0],
+    }
 
 
 class TrialLogger:
-    def __init__(self, metrics_fp, trials_fp):
+    def __init__(self, metrics_fp, trials_fp, latent_channels):
         self.metrics_fp = metrics_fp
         self.trials_fp = trials_fp
+        self.latent_channels = int(latent_channels)
         self._ensure_header()
 
     def _ensure_header(self):
@@ -265,20 +479,138 @@ class TrialLogger:
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
         if not osp.exists(self.metrics_fp):
+            base_cols = [
+                'trial',
+                'objective_split',
+                'euclidean_distance',
+                'sap_score_age_holdout',
+                'correlation_age_target_latent',
+            ]
+            corr_cols = [f'corr_age_latent_{i}' for i in range(self.latent_channels)]
+            r2_cols = [f'r2_age_from_latent_{i}' for i in range(self.latent_channels)]
+            extra_cols = ['prediction_fp', 'model_fp']
             with open(self.metrics_fp, 'w') as f:
-                f.write('trial,euclidean_distance,sap_score_age,correlation_age_latent1\n')
+                f.write(','.join(base_cols + corr_cols + r2_cols + extra_cols) + '\n')
+
+    @staticmethod
+    def _normalize_vector(values, size, fallback=0.0):
+        out = []
+        values = list(values) if values is not None else []
+        for i in range(size):
+            if i < len(values):
+                out.append(sanitize_metric(values[i], fallback=fallback))
+            else:
+                out.append(float(fallback))
+        return out
+
+    @staticmethod
+    def _f(v):
+        return f"{float(v):.10f}"
 
     def __call__(self, study, trial):
         if trial.values is None or len(trial.values) != 3:
             return
 
-        euc, sap_age, corr_age = trial.values
+        euc, sap_age, corr_target = trial.values
+        corr_per_latent = self._normalize_vector(
+            trial.user_attrs.get('corr_per_latent', []),
+            self.latent_channels,
+            fallback=0.0,
+        )
+        r2_per_latent = self._normalize_vector(
+            trial.user_attrs.get('r2_per_latent', []),
+            self.latent_channels,
+            fallback=0.0,
+        )
+        prediction_fp = str(trial.user_attrs.get('prediction_fp', ''))
+        model_fp = str(trial.user_attrs.get('model_fp', ''))
+        objective_split = str(trial.user_attrs.get('objective_split', 'val'))
+
+        row = [
+            str(trial.number),
+            objective_split,
+            self._f(euc),
+            self._f(sap_age),
+            self._f(corr_target),
+        ]
+        row.extend([self._f(v) for v in corr_per_latent])
+        row.extend([self._f(v) for v in r2_per_latent])
+        row.append(prediction_fp)
+        row.append(model_fp)
+
         with open(self.metrics_fp, 'a') as f:
-            f.write(
-                f"{trial.number},{float(euc):.10f},{float(sap_age):.10f},{float(corr_age):.10f}\n"
-            )
+            f.write(','.join(row) + '\n')
 
         torch.save(study.trials, self.trials_fp)
+
+
+def _trial_to_summary(trial):
+    return {
+        'number': int(trial.number),
+        'values': [float(v) for v in trial.values],
+        'params': trial.params,
+        'user_attrs': trial.user_attrs,
+    }
+
+
+def save_study_artifacts(study, args):
+    torch.save(study.trials, args.intermediate_trials_fp)
+
+    complete_trials = [
+        t for t in study.trials
+        if t.state == TrialState.COMPLETE and t.values is not None and len(t.values) == 3
+    ]
+
+    summary = {
+        'objective_split': 'val',
+        'directions': ['minimize', 'maximize', 'maximize'],
+        'n_trials_total': len(study.trials),
+        'n_trials_complete': len(complete_trials),
+        'best_by_distance': None,
+        'best_by_sap': None,
+        'best_by_corr_target': None,
+        'pareto_trials': [],
+    }
+
+    if complete_trials:
+        best_by_distance = min(complete_trials, key=lambda t: t.values[0])
+        best_by_sap = max(complete_trials, key=lambda t: t.values[1])
+        best_by_corr = max(complete_trials, key=lambda t: t.values[2])
+
+        summary['best_by_distance'] = _trial_to_summary(best_by_distance)
+        summary['best_by_sap'] = _trial_to_summary(best_by_sap)
+        summary['best_by_corr_target'] = _trial_to_summary(best_by_corr)
+
+        for t in study.best_trials:
+            summary['pareto_trials'].append(_trial_to_summary(t))
+
+    with open(args.study_summary_fp, 'w') as f:
+        json.dump(summary, f, indent=2)
+
+    with open(args.study_trials_csv_fp, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            'trial',
+            'state',
+            'value_0_distance',
+            'value_1_sap',
+            'value_2_corr_target',
+            'params_json',
+            'user_attrs_json',
+        ])
+        for t in study.trials:
+            values = t.values if t.values is not None else [None, None, None]
+            if len(values) < 3:
+                values = list(values) + [None] * (3 - len(values))
+            writer.writerow([
+                t.number,
+                str(t.state),
+                values[0],
+                values[1],
+                values[2],
+                json.dumps(t.params),
+                json.dumps(t.user_attrs),
+            ])
 
 
 def create_objective(base_args, meshdata, transform_data, device):
@@ -287,10 +619,13 @@ def create_objective(base_args, meshdata, transform_data, device):
     def objective(trial):
         args = copy.deepcopy(base_args)
 
+        print(
+            f"Starting trial {trial.number + 1}/{args.n_trials} | latent={args.latent_channels} | gpu={args.device_idx}",
+            flush=True,
+        )
+
         # Trial ranges (latent size is fixed per launcher/file)
         args.threshold = trial.suggest_float('threshold', 0.01, 0.10, step=0.005)
-        args.lambda1 = trial.suggest_float('lambda1', 0.10, 0.90, step=0.05)
-        args.lambda2 = 1.0 - args.lambda1
         args.epochs = trial.suggest_int('epochs', 80, 220, step=20)
         args.batch_size = trial.suggest_int('batch_size', 4, 24, step=4)
         args.wcls = trial.suggest_float('w_reg_snn', 0.1, 100.0, log=True)
@@ -298,11 +633,9 @@ def create_objective(base_args, meshdata, transform_data, device):
         args.beta = trial.suggest_float('beta', 1e-4, 0.3, log=True)
         args.lr = trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True)
         args.lr_decay = trial.suggest_float('learning_rate_decay', 0.70, 0.99, step=0.01)
-        args.delta = trial.suggest_float('delta', 0.1, 0.9, step=0.1)
         args.decay_step = trial.suggest_int('decay_step', 5, 30)
         args.temperature = trial.suggest_int('temperature', 20, 200, step=10)
         args.weight_decay = trial.suggest_float('weight_decay', 1e-7, 1e-4, log=True)
-        args.weight_decay_c = trial.suggest_float('weight_decay_c', 1e-6, 1e-3, log=True)
 
         sequence_length = trial.suggest_int('sequence_length', 20, 40, step=2)
         args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
@@ -313,7 +646,7 @@ def create_objective(base_args, meshdata, transform_data, device):
         out_channel = trial.suggest_int('out_channel', 16, 48, step=8)
         args.out_channels = [out_channel, out_channel, out_channel, 2 * out_channel]
 
-        train_loader, val_loader, test_loader = build_loaders(
+        train_loader, train_eval_loader, val_loader = build_loaders(
             meshdata=meshdata,
             batch_size=args.batch_size,
             subset_fraction=args.train_subset_fraction,
@@ -348,7 +681,34 @@ def create_objective(base_args, meshdata, transform_data, device):
             gamma=args.lr_decay,
         )
 
-        # No per-epoch checkpointing here to keep Optuna trials light.
+        def epoch_objective_callback(epoch, epochs, train_loss, val_loss, epoch_duration):
+            del train_loss
+            del val_loss
+            del epoch_duration
+            del epochs
+
+            distance_epoch = compute_euclidean_distance(
+                model=model,
+                data_loader=val_loader,
+                device=device,
+                meshdata=meshdata,
+            )
+            age_metrics_epoch = evaluate_age_metrics_holdout(
+                model=model,
+                train_eval_loader=train_eval_loader,
+                eval_loader=val_loader,
+                device=device,
+                age_label_index=args.age_label_index,
+                age_latent_index=args.age_latent_index,
+            )
+
+            return {
+                'distance': float(distance_epoch),
+                'sap': float(age_metrics_epoch['sap_age']),
+                'corr_abs': float(age_metrics_epoch['corr_target']),
+                'corr_raw': float(age_metrics_epoch['corr_target_raw']),
+            }
+
         run(
             model=model,
             train_loader=train_loader,
@@ -371,32 +731,105 @@ def create_objective(base_args, meshdata, transform_data, device):
             lambda2=args.lambda2,
             threshold=args.threshold,
             age_label_index=args.age_label_index,
+            age_latent_index=args.age_latent_index,
             use_snn_cls=args.use_snn_cls,
             use_snn_reg=args.use_snn_reg,
             use_covariance=args.use_covariance,
             covariance_weight=args.covariance_weight,
             save_checkpoints=False,
+            epoch_objective_callback=(
+                epoch_objective_callback if args.print_epoch_objectives else None
+            ),
+            objective_log_interval=args.epoch_objective_interval,
+            trial_number=trial.number,
+            total_trials=args.n_trials,
         )
 
-        euclidean_distance = eval_error(model, test_loader, device, meshdata, args.out_dir)
+        # Hyperparameter objective is validation-only (no test-set optimization).
+        euclidean_distance = eval_error(model, val_loader, device, meshdata, args.out_dir)
         euclidean_distance = sanitize_metric(euclidean_distance, fallback=1e9)
 
-        sap_age, corr_age_latent = evaluate_age_metrics(
+        age_metrics = evaluate_age_metrics_holdout(
             model=model,
-            test_loader=test_loader,
+            train_eval_loader=train_eval_loader,
+            eval_loader=val_loader,
             device=device,
             age_label_index=args.age_label_index,
             age_latent_index=args.age_latent_index,
         )
 
+        prediction_fp = osp.join(
+            args.trial_predictions_dir,
+            f'trial_{trial.number:04d}_predictions.pt',
+        )
+        torch.save(
+            {
+                'trial': int(trial.number),
+                'objective_split': 'val',
+                'age_true': torch.tensor(age_metrics['age_true_eval'], dtype=torch.float32),
+                'age_pred_by_latent': torch.tensor(age_metrics['age_pred_by_latent'], dtype=torch.float32),
+                'corr_per_latent': age_metrics['corr_per_latent'],
+                'r2_per_latent': age_metrics['r2_per_latent'],
+                'sap_age_holdout': age_metrics['sap_age'],
+            },
+            prediction_fp,
+        )
+
+        model_fp = osp.join(
+            args.trial_models_dir,
+            f'trial_{trial.number:04d}_model.pt',
+        )
+        torch.save(
+            {
+                'trial': int(trial.number),
+                'objective_split': 'val',
+                'model_state_dict': model.state_dict(),
+                'in_channels': args.in_channels,
+                'out_channels': args.out_channels,
+                'latent_channels': args.latent_channels,
+                'seq_length': args.seq_length,
+                'dilation': args.dilation,
+                'age_label_index': args.age_label_index,
+                'age_latent_index': args.age_latent_index,
+                'spiral_indices_list': [t.detach().cpu() for t in spiral_indices_list],
+                'down_transform_list': [t.detach().cpu() for t in down_transform_list],
+                'up_transform_list': [t.detach().cpu() for t in up_transform_list],
+                'mean': meshdata.mean.detach().cpu(),
+                'std': meshdata.std.detach().cpu(),
+                'trial_params': trial.params,
+                'objective_values': {
+                    'euclidean_distance_val': float(euclidean_distance),
+                    'sap_age_holdout_val': float(age_metrics['sap_age']),
+                    'corr_target_abs_val': float(age_metrics['corr_target']),
+                    'corr_target_raw_val': float(age_metrics['corr_target_raw']),
+                },
+                'prediction_fp': prediction_fp,
+            },
+            model_fp,
+        )
+
+        trial.set_user_attr('objective_split', 'val')
+        trial.set_user_attr('corr_per_latent', [float(v) for v in age_metrics['corr_per_latent']])
+        trial.set_user_attr('r2_per_latent', [float(v) for v in age_metrics['r2_per_latent']])
+        trial.set_user_attr('corr_target_raw', float(age_metrics['corr_target_raw']))
+        trial.set_user_attr('prediction_fp', prediction_fp)
+        trial.set_user_attr('model_fp', model_fp)
+
         print('')
-        print(f"Trial {trial.number} | latent={args.latent_channels} | gpu={args.device_idx}")
-        print(f"Euclidean Distance: {euclidean_distance:.6f}")
-        print(f"SAP Score (Age):   {sap_age:.6f}")
-        print(f"Corr(Age, z[{args.age_latent_index}]): {corr_age_latent:.6f}")
+        print(
+            f"Trial {trial.number} | latent={args.latent_channels} | gpu={args.device_idx} | split=val"
+        )
+        print(f"Euclidean Distance (val): {euclidean_distance:.6f}")
+        print(f"SAP Score Age Holdout (train->val): {age_metrics['sap_age']:.6f}")
+        print(
+            f"|Corr(Age, z[{args.age_latent_index}])| (val): {age_metrics['corr_target']:.6f}"
+        )
+        print(
+            f"Corr(Age, z[{args.age_latent_index}]) raw (val): {age_metrics['corr_target_raw']:.6f}"
+        )
         print('')
 
-        return euclidean_distance, sap_age, corr_age_latent
+        return euclidean_distance, age_metrics['sap_age'], age_metrics['corr_target']
 
     return objective
 
@@ -409,45 +842,68 @@ def main(argv=None):
             f"latent_channels must be one of {{8, 12, 16}} for this setup, got {args.latent_channels}."
         )
 
+    if args.age_latent_index < 0 or args.age_latent_index >= args.latent_channels:
+        raise ValueError(
+            f"age_latent_index={args.age_latent_index} must be in [0, {args.latent_channels - 1}]"
+        )
+
+    if args.epoch_objective_interval < 1:
+        raise ValueError('epoch_objective_interval must be >= 1')
+
     resolve_paths(args)
 
-    device = torch.device('cuda', args.device_idx)
-    torch.set_num_threads(args.n_threads)
+    log_handle = None
+    original_stdout = None
+    original_stderr = None
 
-    set_seed(args.seed)
-    cudnn.benchmark = False
-    cudnn.deterministic = True
+    try:
+        log_handle, original_stdout, original_stderr = setup_logging(args.log_fp)
 
-    print(args.data_fp)
-    template_fp = osp.join(args.data_fp, 'template', 'template.ply')
-    print(template_fp)
+        device = torch.device('cuda', args.device_idx)
+        torch.set_num_threads(args.n_threads)
 
-    meshdata = MeshData(
-        args.data_fp,
-        template_fp,
-        split=args.split,
-        test_exp=args.test_exp,
-    )
+        set_seed(args.seed)
+        cudnn.benchmark = False
+        cudnn.deterministic = True
 
-    transform_fp = osp.join(args.data_fp, 'transform', 'transform.pkl')
-    transform_data = load_or_generate_transform(template_fp, transform_fp)
+        print(args.data_fp)
+        template_fp = osp.join(args.data_fp, 'template', 'template.ply')
+        print(template_fp)
 
-    objective = create_objective(
-        base_args=args,
-        meshdata=meshdata,
-        transform_data=transform_data,
-        device=device,
-    )
+        meshdata = MeshData(
+            args.data_fp,
+            template_fp,
+            split=args.split,
+            test_exp=args.test_exp,
+        )
 
-    trial_logger = TrialLogger(
-        metrics_fp=args.trial_metrics_fp,
-        trials_fp=args.intermediate_trials_fp,
-    )
+        transform_fp = osp.join(args.data_fp, 'transform', 'transform.pkl')
+        transform_data = load_or_generate_transform(template_fp, transform_fp)
 
-    study = optuna.create_study(directions=['minimize', 'maximize', 'maximize'])
-    study.optimize(objective, n_trials=args.n_trials, callbacks=[trial_logger])
+        objective = create_objective(
+            base_args=args,
+            meshdata=meshdata,
+            transform_data=transform_data,
+            device=device,
+        )
 
-    torch.save(study.trials, args.intermediate_trials_fp)
+        trial_logger = TrialLogger(
+            metrics_fp=args.trial_metrics_fp,
+            trials_fp=args.intermediate_trials_fp,
+            latent_channels=args.latent_channels,
+        )
+
+        sampler = optuna.samplers.NSGAIISampler(seed=args.seed)
+        study = optuna.create_study(
+            directions=['minimize', 'maximize', 'maximize'],
+            sampler=sampler,
+        )
+        study.optimize(objective, n_trials=args.n_trials, callbacks=[trial_logger])
+
+        save_study_artifacts(study, args)
+    finally:
+        if log_handle is not None:
+            teardown_logging(log_handle, original_stdout, original_stderr)
 
 
 if __name__ == '__main__':

@@ -7,6 +7,9 @@ if __name__ == '__main__':
         '--device_idx', '2',
         '--latent_channels', '16',
         '--n_trials', '100',
-        '--trial_metrics_fp', '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/calsnic_als/models/trial_metrics_gpu2_latent16.txt',
+        '--seed', '303',
+        '--age_latent_index', '0',
+        '--trial_metrics_fp', '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/calsnic_als/models/trial_metrics_gpu2_latent16.csv',
         '--intermediate_trials_fp', '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/calsnic_als/models/intermediate_trials_gpu2_latent16.pt',
+        '--log_fp', '/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae/data/CoMA/raw/calsnic_als/models/logs/gpu2_latent16.log',
     ])

@@ -6,6 +6,18 @@ import scipy.sparse as sp
 from psbody.mesh import Mesh
 
 
+def _clamp_progress_value(value):
+    return max(0, min(100, int(value)))
+
+
+def _print_progress_line(prefix, progress):
+    p = _clamp_progress_value(progress)
+    if prefix:
+        print(f"[Transform] {prefix}: {p}/100", flush=True)
+    else:
+        print(f"[Transform] {p}/100", flush=True)
+
+
 def row(A):
     return A.reshape((1, -1))
 
@@ -128,7 +140,15 @@ def setup_deformation_transfer(source, target, use_normals=False):
     return matrix
 
 
-def qslim_decimator_transformer(mesh, factor=None, n_verts_desired=None):
+def qslim_decimator_transformer(
+    mesh,
+    factor=None,
+    n_verts_desired=None,
+    progress_prefix=None,
+    progress_start=0.0,
+    progress_span=100.0,
+):
+
     """Return a simplified version of this mesh.
 
     A Qslim-style approach is used here.
@@ -190,6 +210,12 @@ def qslim_decimator_transformer(mesh, factor=None, n_verts_desired=None):
     collapse_list = []
     nverts_total = len(mesh.v)
     faces = mesh.f.copy()
+
+    initial_verts = nverts_total
+    total_reduction = max(1, initial_verts - n_verts_desired)
+    level_start = float(progress_start)
+    level_end = float(progress_start + progress_span)
+    last_reported = _clamp_progress_value(level_start) - 1
     while nverts_total > n_verts_desired:
         e = heapq.heappop(queue)
         r = e[1][0]
@@ -248,6 +274,20 @@ def qslim_decimator_transformer(mesh, factor=None, n_verts_desired=None):
 
         nverts_total = (len(np.unique(faces.flatten())))
 
+        reduced = max(0, initial_verts - nverts_total)
+        local_frac = min(1.0, reduced / float(total_reduction))
+        current_progress = level_start + (local_frac * (level_end - level_start))
+        current_int = _clamp_progress_value(current_progress)
+        if current_int > last_reported:
+            for p in range(last_reported + 1, current_int + 1):
+                _print_progress_line(progress_prefix, p)
+            last_reported = current_int
+
+    final_int = _clamp_progress_value(level_end)
+    if final_int > last_reported:
+        for p in range(last_reported + 1, final_int + 1):
+            _print_progress_line(progress_prefix, p)
+
     new_faces, mtx = _get_sparse_transform(faces, len(mesh.v))
     return new_faces, mtx
 
@@ -281,15 +321,35 @@ def generate_transform_matrices(mesh, factors):
        F: a list of faces
     """
 
-    factors = map(lambda x: 1.0 / x, factors)
+    factors = [1.0 / x for x in factors]
+    total_levels = len(factors)
+
     M, A, D, U, F, V = [], [], [], [], [], []
     F.append(mesh.f)  # F[0]
     V.append(mesh.v)
     A.append(get_vert_connectivity(mesh.v, mesh.f).astype('float32'))  # A[0]
     M.append(mesh)  # M[0]
 
-    for factor in factors:
-        ds_f, ds_D = qslim_decimator_transformer(M[-1], factor=factor)
+    _print_progress_line('', 0)
+
+    for level_idx, factor in enumerate(factors):
+        level_id = level_idx + 1
+        level_start = (100.0 * level_idx) / float(total_levels)
+        level_end = (100.0 * level_id) / float(total_levels)
+        progress_prefix = f"Level {level_id}/{total_levels}"
+
+        print(
+            f"[Transform] {progress_prefix} start | downsample factor={factor:.6f}",
+            flush=True,
+        )
+
+        ds_f, ds_D = qslim_decimator_transformer(
+            M[-1],
+            factor=factor,
+            progress_prefix=progress_prefix,
+            progress_start=level_start,
+            progress_span=(level_end - level_start),
+        )
         D.append(ds_D.astype('float32'))
         new_mesh_v = ds_D.dot(M[-1].v)
         new_mesh = Mesh(v=new_mesh_v, f=ds_f)
@@ -299,5 +359,7 @@ def generate_transform_matrices(mesh, factors):
         A.append(
             get_vert_connectivity(new_mesh.v, new_mesh.f).astype('float32'))
         U.append(setup_deformation_transfer(M[-1], M[-2]).astype('float32'))
+
+    _print_progress_line('', 100)
 
     return M, A, D, U, F, V

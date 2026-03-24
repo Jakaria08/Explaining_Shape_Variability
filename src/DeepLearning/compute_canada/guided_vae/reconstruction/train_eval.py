@@ -43,12 +43,26 @@ def run(
     lambda2,
     threshold,
     age_label_index=1,
+    age_latent_index=0,
     use_snn_cls=False,
     use_snn_reg=True,
     use_covariance=False,
     covariance_weight=0.0,
     save_checkpoints=True,
+    epoch_objective_callback=None,
+    objective_log_interval=1,
+    trial_number=None,
+    total_trials=None,
 ):
+    del latent_channels  # kept for backward compatibility
+    del weight_decay_c   # kept for backward compatibility
+    del delta            # kept for backward compatibility
+
+    if objective_log_interval is None or int(objective_log_interval) < 1:
+        objective_log_interval = 1
+    else:
+        objective_log_interval = int(objective_log_interval)
+
     # Keep instantiated lazily only when requested.
     snn_cls_criterion = (
         SNNLoss(temp, lambda1, lambda2)
@@ -56,7 +70,7 @@ def run(
         else None
     )
     snn_reg_criterion = (
-        SNNRegLoss(temp, threshold)
+        SNNRegLoss(temp, threshold, age_latent_index=age_latent_index)
         if guided_contrastive_loss and use_snn_reg
         else None
     )
@@ -64,6 +78,9 @@ def run(
 
     corr_cls_criterion = ClsCorrelationLoss() if correlation_loss else None
     corr_reg_criterion = RegCorrelationLoss() if correlation_loss else None
+
+    trial_idx = '?' if trial_number is None else str(int(trial_number) + 1)
+    trial_total = '?' if total_trials is None else str(int(total_trials))
 
     for epoch in range(1, epochs + 1):
         t = time.time()
@@ -108,6 +125,46 @@ def run(
             writer.print_info(info)
             if save_checkpoints:
                 writer.save_checkpoint(model, optimizer, scheduler, epoch)
+
+        should_log_objective = (
+            epoch_objective_callback is not None
+            and (
+                epoch == 1
+                or epoch == epochs
+                or (epoch % objective_log_interval == 0)
+            )
+        )
+
+        if should_log_objective:
+            objective_values = None
+            try:
+                objective_values = epoch_objective_callback(
+                    epoch=epoch,
+                    epochs=epochs,
+                    train_loss=float(train_loss),
+                    val_loss=float(test_loss),
+                    epoch_duration=float(t_duration),
+                )
+            except Exception as exc:
+                print(
+                    f"[Trial {trial_idx}/{trial_total}] Epoch {epoch}/{epochs} "
+                    f"objective logging failed: {exc}",
+                    flush=True,
+                )
+
+            if objective_values is not None:
+                dist = float(objective_values.get('distance', float('nan')))
+                sap = float(objective_values.get('sap', float('nan')))
+                corr_abs = float(objective_values.get('corr_abs', float('nan')))
+                corr_raw = float(objective_values.get('corr_raw', float('nan')))
+                print(
+                    f"[Trial {trial_idx}/{trial_total}] Epoch {epoch}/{epochs} "
+                    f"train_loss={train_loss:.6f} val_loss={test_loss:.6f} "
+                    f"distance(min)={dist:.6f} sap(max)={sap:.6f} "
+                    f"corr(max)={corr_abs:.6f} corr_raw={corr_raw:.6f} "
+                    f"epoch_time={t_duration:.2f}s",
+                    flush=True,
+                )
 
 
 def train(
