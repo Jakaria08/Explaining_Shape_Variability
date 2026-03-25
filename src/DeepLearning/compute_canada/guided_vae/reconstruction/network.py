@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_scatter import scatter_add
 
-from conv import SpiralConv
+from conv import AdaptiveSpiralConv, SpiralConv
+
+
+SUPPORTED_CONV_TYPES = {'spiral', 'adaptive_spiral'}
 
 
 def Pool(x, trans, dim=1):
@@ -32,14 +35,63 @@ def _move_spiral_indices_in_module(module, device):
         module.conv.indices = module.conv.indices.to(device)
     elif isinstance(module, SpiralDeblock):
         module.conv.indices = module.conv.indices.to(device)
-    elif isinstance(module, SpiralConv):
+    elif isinstance(module, (SpiralConv, AdaptiveSpiralConv)):
         module.indices = module.indices.to(device)
 
 
+def _normalize_conv_type(conv_type):
+    normalized = str(conv_type).strip().lower()
+    if normalized not in SUPPORTED_CONV_TYPES:
+        raise ValueError(
+            f'Unsupported conv_type={conv_type}. '
+            f'Expected one of {sorted(SUPPORTED_CONV_TYPES)}.'
+        )
+    return normalized
+
+
+def _build_conv(
+    in_channels,
+    out_channels,
+    indices,
+    conv_type='spiral',
+    adaptive_hidden=32,
+    adaptive_dropout=0.0,
+    adaptive_global_context=False,
+):
+    conv_type = _normalize_conv_type(conv_type)
+    if conv_type == 'spiral':
+        return SpiralConv(in_channels, out_channels, indices)
+    return AdaptiveSpiralConv(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        indices=indices,
+        hidden_channels=adaptive_hidden,
+        dropout=adaptive_dropout,
+        use_global_context=adaptive_global_context,
+    )
+
+
 class SpiralEnblock(nn.Module):
-    def __init__(self, in_channels, out_channels, indices):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        indices,
+        conv_type='spiral',
+        adaptive_hidden=32,
+        adaptive_dropout=0.0,
+        adaptive_global_context=False,
+    ):
         super(SpiralEnblock, self).__init__()
-        self.conv = SpiralConv(in_channels, out_channels, indices)
+        self.conv = _build_conv(
+            in_channels,
+            out_channels,
+            indices,
+            conv_type=conv_type,
+            adaptive_hidden=adaptive_hidden,
+            adaptive_dropout=adaptive_dropout,
+            adaptive_global_context=adaptive_global_context,
+        )
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -52,9 +104,26 @@ class SpiralEnblock(nn.Module):
 
 
 class SpiralDeblock(nn.Module):
-    def __init__(self, in_channels, out_channels, indices):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        indices,
+        conv_type='spiral',
+        adaptive_hidden=32,
+        adaptive_dropout=0.0,
+        adaptive_global_context=False,
+    ):
         super(SpiralDeblock, self).__init__()
-        self.conv = SpiralConv(in_channels, out_channels, indices)
+        self.conv = _build_conv(
+            in_channels,
+            out_channels,
+            indices,
+            conv_type=conv_type,
+            adaptive_hidden=adaptive_hidden,
+            adaptive_dropout=adaptive_dropout,
+            adaptive_global_context=adaptive_global_context,
+        )
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -67,8 +136,21 @@ class SpiralDeblock(nn.Module):
 
 
 class AE(nn.Module):
-    def __init__(self, in_channels, out_channels, latent_channels,
-                 spiral_indices, down_transform, up_transform, training=True):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        latent_channels,
+        spiral_indices,
+        down_transform,
+        up_transform,
+        training=True,
+        conv_type='spiral',
+        adaptive_hidden=32,
+        adaptive_dropout=0.0,
+        adaptive_global_context=False,
+        force_deterministic_latent=False,
+    ):
         super(AE, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -79,19 +161,40 @@ class AE(nn.Module):
         self.up_transform = up_transform
         self.num_vert = self.down_transform[-1].size(0)
         self.training = training
+        self.conv_type = _normalize_conv_type(conv_type)
+        self.adaptive_hidden = int(adaptive_hidden)
+        self.adaptive_dropout = float(adaptive_dropout)
+        self.adaptive_global_context = bool(adaptive_global_context)
+        self.force_deterministic_latent = bool(force_deterministic_latent)
 
         # encoder
         self.en_layers = nn.ModuleList()
         for idx in range(len(out_channels)):
             if idx == 0:
                 self.en_layers.append(
-                    SpiralEnblock(in_channels, out_channels[idx],
-                                  self.spiral_indices[idx]))
+                    SpiralEnblock(
+                        in_channels,
+                        out_channels[idx],
+                        self.spiral_indices[idx],
+                        conv_type=self.conv_type,
+                        adaptive_hidden=self.adaptive_hidden,
+                        adaptive_dropout=self.adaptive_dropout,
+                        adaptive_global_context=self.adaptive_global_context,
+                    )
+                )
             else:
                 self.en_layers.append(
-                    SpiralEnblock(out_channels[idx - 1], out_channels[idx],
-                                  self.spiral_indices[idx]))
-        self.en_layers.append(nn.Linear(self.num_vert * out_channels[-1], 2*latent_channels))
+                    SpiralEnblock(
+                        out_channels[idx - 1],
+                        out_channels[idx],
+                        self.spiral_indices[idx],
+                        conv_type=self.conv_type,
+                        adaptive_hidden=self.adaptive_hidden,
+                        adaptive_dropout=self.adaptive_dropout,
+                        adaptive_global_context=self.adaptive_global_context,
+                    )
+                )
+        self.en_layers.append(nn.Linear(self.num_vert * out_channels[-1], 2 * latent_channels))
         #self.en_layers.append(nn.Linear(8*latent_channels, 2*latent_channels))
 
         # decoder
@@ -101,19 +204,43 @@ class AE(nn.Module):
         for idx in range(len(out_channels)):
             if idx == 0:
                 self.de_layers.append(
-                    SpiralDeblock(out_channels[-idx - 1],
-                                  out_channels[-idx - 1],
-                                  self.spiral_indices[-idx - 1]))
+                    SpiralDeblock(
+                        out_channels[-idx - 1],
+                        out_channels[-idx - 1],
+                        self.spiral_indices[-idx - 1],
+                        conv_type=self.conv_type,
+                        adaptive_hidden=self.adaptive_hidden,
+                        adaptive_dropout=self.adaptive_dropout,
+                        adaptive_global_context=self.adaptive_global_context,
+                    )
+                )
             else:
                 self.de_layers.append(
-                    SpiralDeblock(out_channels[-idx], out_channels[-idx - 1],
-                                  self.spiral_indices[-idx - 1]))
+                    SpiralDeblock(
+                        out_channels[-idx],
+                        out_channels[-idx - 1],
+                        self.spiral_indices[-idx - 1],
+                        conv_type=self.conv_type,
+                        adaptive_hidden=self.adaptive_hidden,
+                        adaptive_dropout=self.adaptive_dropout,
+                        adaptive_global_context=self.adaptive_global_context,
+                    )
+                )
         self.de_layers.append(
-            SpiralConv(out_channels[0], in_channels, self.spiral_indices[0]))
+            _build_conv(
+                out_channels[0],
+                in_channels,
+                self.spiral_indices[0],
+                conv_type=self.conv_type,
+                adaptive_hidden=self.adaptive_hidden,
+                adaptive_dropout=self.adaptive_dropout,
+                adaptive_global_context=self.adaptive_global_context,
+            )
+        )
 
         self.reset_parameters()
 
-	    # Excitation
+        # Excitation
         self.cls_sq = nn.Sequential(
             nn.Linear(1, 8),
             nn.BatchNorm1d(8),
@@ -168,6 +295,8 @@ class AE(nn.Module):
         return x
 
     def reparameterize(self, mu, log_var):
+        if self.force_deterministic_latent:
+            return mu
         if self.training:
             #log_var = log_var.clamp(max=10)
             std = torch.exp(0.5 * log_var)
@@ -212,6 +341,11 @@ class AEModelParallel(AE):
         up_transform,
         device_ids,
         training=True,
+        conv_type='spiral',
+        adaptive_hidden=32,
+        adaptive_dropout=0.0,
+        adaptive_global_context=False,
+        force_deterministic_latent=False,
     ):
         if not torch.cuda.is_available():
             raise RuntimeError('AEModelParallel requires CUDA.')
@@ -231,6 +365,11 @@ class AEModelParallel(AE):
             down_transform=down_transform,
             up_transform=up_transform,
             training=training,
+            conv_type=conv_type,
+            adaptive_hidden=adaptive_hidden,
+            adaptive_dropout=adaptive_dropout,
+            adaptive_global_context=adaptive_global_context,
+            force_deterministic_latent=force_deterministic_latent,
         )
 
         self.model_parallel = True

@@ -41,6 +41,7 @@ DEFAULT_MODELS_ROOT = (
     "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/"
     "guided_vae/data/CoMA/raw/calsnic_als/models"
 )
+SUPPORTED_CONV_TYPES = ('spiral', 'adaptive_spiral')
 
 
 def str2bool(v):
@@ -85,6 +86,30 @@ def parse_args(argv=None):
     parser.add_argument('--in_channels', type=int, default=3)
     parser.add_argument('--seq_length', type=int, default=[9, 9, 9, 9], nargs='+')
     parser.add_argument('--dilation', type=int, default=[1, 1, 1, 1], nargs='+')
+    parser.add_argument(
+        '--conv_type',
+        type=str,
+        default='spiral',
+        choices=list(SUPPORTED_CONV_TYPES),
+    )
+    parser.add_argument('--optimize_conv_type', type=str2bool, default=False)
+    parser.add_argument('--adaptive_hidden', type=int, default=32)
+    parser.add_argument('--adaptive_dropout', type=float, default=0.0)
+    parser.add_argument('--adaptive_global_context', type=str2bool, default=False)
+    parser.add_argument(
+        '--optuna_stage',
+        type=str,
+        default='single',
+        choices=['single', 'stage1', 'stage2'],
+    )
+    parser.add_argument(
+        '--stage1_latent_choices',
+        nargs='+',
+        type=int,
+        default=[8, 16, 32, 64, 128],
+    )
+    parser.add_argument('--stage1_summary_fp', type=str, default='')
+    parser.add_argument('--stage2_latent_override', type=int, default=-1)
 
     # optimizer / loss hyperparameters
     parser.add_argument('--optimizer', type=str, default='Adam')
@@ -200,6 +225,115 @@ def resolve_parallel_config(args):
         args.gpu_tag = f'g{int(args.device_idx)}'
 
 
+def resolve_conv_config(args):
+    args.conv_type = str(args.conv_type).strip().lower()
+    if args.conv_type not in SUPPORTED_CONV_TYPES:
+        raise ValueError(
+            f"conv_type must be one of {SUPPORTED_CONV_TYPES}, got '{args.conv_type}'."
+        )
+    if int(args.adaptive_hidden) < 1:
+        raise ValueError('adaptive_hidden must be >= 1.')
+    if float(args.adaptive_dropout) < 0.0 or float(args.adaptive_dropout) >= 1.0:
+        raise ValueError('adaptive_dropout must be in [0, 1).')
+    args.conv_tag = 'convsearch' if args.optimize_conv_type else args.conv_type
+
+
+def _extract_latent_from_summary(summary_dict):
+    candidate_paths = [
+        ('best_by_distance_metric',),
+        ('best_by_distance',),
+        ('best_by_objective', 0),
+    ]
+
+    for path in candidate_paths:
+        node = summary_dict
+        valid = True
+        for key in path:
+            if isinstance(key, int):
+                if not isinstance(node, list) or len(node) <= key:
+                    valid = False
+                    break
+                node = node[key]
+            else:
+                if not isinstance(node, dict) or key not in node:
+                    valid = False
+                    break
+                node = node[key]
+        if not valid or not isinstance(node, dict):
+            continue
+
+        params = node.get('params', {})
+        user_attrs = node.get('user_attrs', {})
+        latent = params.get('latent_channels', user_attrs.get('latent_channels', None))
+        if latent is not None:
+            latent = int(latent)
+            if latent >= 2:
+                return latent
+
+    raise ValueError(
+        'Could not extract latent_channels from stage-1 summary. '
+        'Expected keys like best_by_distance_metric / best_by_distance / best_by_objective.'
+    )
+
+
+def _default_stage1_summary_fp(args):
+    return osp.join(
+        args.models_root,
+        f'study_summary_{args.gpu_tag}_{args.conv_tag}_stage1_latentstage1search.json',
+    )
+
+
+def resolve_stage_config(args):
+    args.optuna_stage = str(args.optuna_stage).strip().lower()
+    if args.optuna_stage not in {'single', 'stage1', 'stage2'}:
+        raise ValueError("optuna_stage must be one of {'single','stage1','stage2'}.")
+
+    args.stage_tag = args.optuna_stage
+
+    if args.optuna_stage == 'single':
+        args.use_stage1_defaults = False
+        args.use_stage2_defaults = False
+        return
+
+    if args.optuna_stage == 'stage1':
+        stage1_choices = sorted({int(x) for x in args.stage1_latent_choices})
+        _validate_latent_choices(stage1_choices)
+
+        args.optimize_latent = True
+        args.latent_choices = stage1_choices
+        args.latent_tag = 'stage1search'
+
+        # Stage-1 requirement: only latent is tuned.
+        args.optimize_conv_type = False
+        args.conv_tag = args.conv_type
+        args.use_stage1_defaults = True
+        args.use_stage2_defaults = False
+        return
+
+    # stage2
+    args.optimize_latent = False
+    args.optimize_conv_type = False
+    args.conv_tag = args.conv_type
+    args.use_stage1_defaults = False
+    args.use_stage2_defaults = True
+
+    if int(args.stage2_latent_override) >= 2:
+        args.latent_channels = int(args.stage2_latent_override)
+        return
+
+    summary_fp = args.stage1_summary_fp or _default_stage1_summary_fp(args)
+    if not osp.exists(summary_fp):
+        raise FileNotFoundError(
+            'Stage-2 requires stage-1 best latent. '
+            f'Summary file not found: {summary_fp}. '
+            'Pass --stage1_summary_fp or --stage2_latent_override.'
+        )
+    with open(summary_fp, 'r') as f:
+        stage1_summary = json.load(f)
+    args.latent_channels = _extract_latent_from_summary(stage1_summary)
+    args.stage1_summary_fp = summary_fp
+
+
 def resolve_paths(args):
     args.data_fp = osp.join(args.work_dir, 'data', args.dataset)
     args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
@@ -212,37 +346,37 @@ def resolve_paths(args):
     if not args.trial_metrics_fp:
         args.trial_metrics_fp = osp.join(
             args.models_root,
-            f'trial_metrics_{args.gpu_tag}_latent{args.latent_tag}.csv',
+            f'trial_metrics_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}.csv',
         )
 
     if not args.intermediate_trials_fp:
         args.intermediate_trials_fp = osp.join(
             args.models_root,
-            f'intermediate_trials_{args.gpu_tag}_latent{args.latent_tag}.pt',
+            f'intermediate_trials_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}.pt',
         )
 
     if not args.trial_predictions_dir:
         args.trial_predictions_dir = osp.join(
             args.models_root,
-            f'trial_predictions_{args.gpu_tag}_latent{args.latent_tag}',
+            f'trial_predictions_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}',
         )
 
     if not args.trial_models_dir:
         args.trial_models_dir = osp.join(
             args.models_root,
-            f'trial_models_{args.gpu_tag}_latent{args.latent_tag}',
+            f'trial_models_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}',
         )
 
     if not args.study_summary_fp:
         args.study_summary_fp = osp.join(
             args.models_root,
-            f'study_summary_{args.gpu_tag}_latent{args.latent_tag}.json',
+            f'study_summary_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}.json',
         )
 
     if not args.study_trials_csv_fp:
         args.study_trials_csv_fp = osp.join(
             args.models_root,
-            f'study_trials_{args.gpu_tag}_latent{args.latent_tag}.csv',
+            f'study_trials_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}.csv',
         )
 
     if not args.log_dir:
@@ -251,7 +385,7 @@ def resolve_paths(args):
     if not args.log_fp:
         args.log_fp = osp.join(
             args.log_dir,
-            f'{args.exp_name}_{args.gpu_tag}_latent{args.latent_tag}.log',
+            f'{args.exp_name}_{args.gpu_tag}_{args.conv_tag}_{args.stage_tag}_latent{args.latent_tag}.log',
         )
 
     gv_utils.makedirs(args.trial_predictions_dir)
@@ -556,11 +690,20 @@ class TrialLogger:
         if not osp.exists(self.metrics_fp):
             base_cols = [
                 'trial',
+                'stage',
                 'objective_split',
                 'latent_channels',
+                'conv_type',
+                'adaptive_hidden',
+                'adaptive_dropout',
+                'adaptive_global_context',
+                'objective_value_0',
+                'objective_value_1',
+                'objective_value_2',
                 'euclidean_distance',
                 'sap_score_age_holdout',
                 'correlation_age_target_latent',
+                'correlation_age_target_latent_raw',
             ]
             corr_cols = [f'corr_age_latent_{i}' for i in range(self.latent_channels)]
             r2_cols = [f'r2_age_from_latent_{i}' for i in range(self.latent_channels)]
@@ -584,10 +727,13 @@ class TrialLogger:
         return f"{float(v):.10f}"
 
     def __call__(self, study, trial):
-        if trial.values is None or len(trial.values) != 3:
+        if trial.values is None or len(trial.values) == 0:
             return
 
-        euc, sap_age, corr_target = trial.values
+        values = [sanitize_metric(v, fallback=float('nan')) for v in trial.values]
+        while len(values) < 3:
+            values.append(float('nan'))
+
         corr_per_latent = self._normalize_vector(
             trial.user_attrs.get('corr_per_latent', []),
             self.latent_channels,
@@ -601,18 +747,48 @@ class TrialLogger:
         prediction_fp = str(trial.user_attrs.get('prediction_fp', ''))
         model_fp = str(trial.user_attrs.get('model_fp', ''))
         objective_split = str(trial.user_attrs.get('objective_split', 'val'))
+        stage = str(trial.user_attrs.get('stage', 'single'))
 
         latent_channels_used = int(
             trial.params.get('latent_channels', trial.user_attrs.get('latent_channels', self.latent_channels))
         )
+        conv_type = str(trial.user_attrs.get('conv_type', trial.params.get('conv_type', 'spiral')))
+        adaptive_hidden = int(trial.user_attrs.get('adaptive_hidden', 0))
+        adaptive_dropout = float(trial.user_attrs.get('adaptive_dropout', 0.0))
+        adaptive_global_context = bool(trial.user_attrs.get('adaptive_global_context', False))
+        euc = sanitize_metric(
+            trial.user_attrs.get('euclidean_distance', float('nan')),
+            fallback=float('nan'),
+        )
+        sap_age = sanitize_metric(
+            trial.user_attrs.get('sap_age_holdout', float('nan')),
+            fallback=float('nan'),
+        )
+        corr_target = sanitize_metric(
+            trial.user_attrs.get('corr_target_abs', float('nan')),
+            fallback=float('nan'),
+        )
+        corr_target_raw = sanitize_metric(
+            trial.user_attrs.get('corr_target_raw', float('nan')),
+            fallback=float('nan'),
+        )
 
         row = [
             str(trial.number),
+            stage,
             objective_split,
             str(latent_channels_used),
+            conv_type,
+            str(adaptive_hidden),
+            self._f(adaptive_dropout),
+            str(int(adaptive_global_context)),
+            self._f(values[0]),
+            self._f(values[1]),
+            self._f(values[2]),
             self._f(euc),
             self._f(sap_age),
             self._f(corr_target),
+            self._f(corr_target_raw),
         ]
         row.extend([self._f(v) for v in corr_per_latent])
         row.extend([self._f(v) for v in r2_per_latent])
@@ -626,9 +802,12 @@ class TrialLogger:
 
 
 def _trial_to_summary(trial):
+    values = []
+    if trial.values is not None:
+        values = [float(v) for v in trial.values]
     return {
         'number': int(trial.number),
-        'values': [float(v) for v in trial.values],
+        'values': values,
         'params': trial.params,
         'user_attrs': trial.user_attrs,
     }
@@ -636,17 +815,25 @@ def _trial_to_summary(trial):
 
 def save_study_artifacts(study, args):
     torch.save(study.trials, args.intermediate_trials_fp)
+    n_objectives = len(study.directions)
 
     complete_trials = [
         t for t in study.trials
-        if t.state == TrialState.COMPLETE and t.values is not None and len(t.values) == 3
+        if t.state == TrialState.COMPLETE and t.values is not None and len(t.values) == n_objectives
+    ]
+
+    direction_names = [
+        d.name.lower() if hasattr(d, 'name') else str(d).split('.')[-1].lower()
+        for d in study.directions
     ]
 
     summary = {
+        'stage': args.optuna_stage,
         'objective_split': 'val',
-        'directions': ['minimize', 'maximize', 'maximize'],
+        'directions': direction_names,
         'n_trials_total': len(study.trials),
         'n_trials_complete': len(complete_trials),
+        'best_by_objective': [],
         'best_by_distance': None,
         'best_by_sap': None,
         'best_by_corr_target': None,
@@ -654,15 +841,41 @@ def save_study_artifacts(study, args):
     }
 
     if complete_trials:
-        best_by_distance = min(complete_trials, key=lambda t: t.values[0])
-        best_by_sap = max(complete_trials, key=lambda t: t.values[1])
-        best_by_corr = max(complete_trials, key=lambda t: t.values[2])
+        for idx, direction in enumerate(direction_names):
+            if direction == 'minimize':
+                best_obj = min(complete_trials, key=lambda t: t.values[idx])
+            else:
+                best_obj = max(complete_trials, key=lambda t: t.values[idx])
+            summary['best_by_objective'].append(
+                {
+                    'objective_index': int(idx),
+                    'direction': direction,
+                    'trial': _trial_to_summary(best_obj),
+                }
+            )
+
+        best_by_distance = min(
+            complete_trials,
+            key=lambda t: sanitize_metric(t.user_attrs.get('euclidean_distance', float('inf')), fallback=float('inf')),
+        )
+        best_by_sap = max(
+            complete_trials,
+            key=lambda t: sanitize_metric(t.user_attrs.get('sap_age_holdout', float('-inf')), fallback=float('-inf')),
+        )
+        best_by_corr = max(
+            complete_trials,
+            key=lambda t: sanitize_metric(t.user_attrs.get('corr_target_abs', float('-inf')), fallback=float('-inf')),
+        )
 
         summary['best_by_distance'] = _trial_to_summary(best_by_distance)
         summary['best_by_sap'] = _trial_to_summary(best_by_sap)
         summary['best_by_corr_target'] = _trial_to_summary(best_by_corr)
 
-        for t in study.best_trials:
+        if n_objectives > 1:
+            pareto_trials = study.best_trials
+        else:
+            pareto_trials = [study.best_trial]
+        for t in pareto_trials:
             summary['pareto_trials'].append(_trial_to_summary(t))
 
     with open(args.study_summary_fp, 'w') as f:
@@ -673,9 +886,10 @@ def save_study_artifacts(study, args):
         writer.writerow([
             'trial',
             'state',
-            'value_0_distance',
-            'value_1_sap',
-            'value_2_corr_target',
+            'stage',
+            'value_0',
+            'value_1',
+            'value_2',
             'params_json',
             'user_attrs_json',
         ])
@@ -686,6 +900,7 @@ def save_study_artifacts(study, args):
             writer.writerow([
                 t.number,
                 str(t.state),
+                args.optuna_stage,
                 values[0],
                 values[1],
                 values[2],
@@ -703,13 +918,107 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
 
     def objective(trial):
         args = copy.deepcopy(base_args)
+        stage = args.optuna_stage
+        args.conv_type = str(args.conv_type).strip().lower()
+        args.force_deterministic_latent = False
 
-        if args.optimize_latent:
+        if stage == 'stage1':
+            # Stage-1: only latent is tuned; reconstruction-only optimization.
             args.latent_channels = int(
                 trial.suggest_categorical('latent_channels', args.latent_choices)
             )
-        else:
+            args.force_deterministic_latent = True
+            args.beta = 0.0
+            args.guided = False
+            args.guided_contrastive_loss = False
+            args.correlation_loss = False
+            args.use_snn_cls = False
+            args.use_snn_reg = False
+            args.use_covariance = False
+            args.wcls = 0.0
+            args.covariance_weight = 0.0
+        elif stage == 'stage2':
+            # Stage-2: latent is fixed; only disentanglement-related params are tuned.
             args.latent_channels = int(args.latent_channels)
+            args.beta = trial.suggest_float('beta', 1e-4, 0.3, log=True)
+            args.wcls = trial.suggest_float('w_reg_snn', 0.1, 100.0, log=True)
+            args.covariance_weight = trial.suggest_float('covariance_weight', 1e-7, 1e-2, log=True)
+            args.temperature = trial.suggest_int('temperature', 20, 200, step=10)
+            args.threshold = trial.suggest_float('threshold', 0.01, 0.10, step=0.005)
+            args.guided = False
+            args.guided_contrastive_loss = True
+            args.correlation_loss = False
+            args.use_snn_cls = False
+            args.use_snn_reg = True
+            args.use_covariance = True
+        else:
+            # Original single-stage search.
+            if args.optimize_latent:
+                args.latent_channels = int(
+                    trial.suggest_categorical('latent_channels', args.latent_choices)
+                )
+            else:
+                args.latent_channels = int(args.latent_channels)
+
+            if args.optimize_conv_type:
+                args.conv_type = trial.suggest_categorical(
+                    'conv_type',
+                    list(SUPPORTED_CONV_TYPES),
+                )
+
+            args.threshold = trial.suggest_float('threshold', 0.01, 0.10, step=0.005)
+            args.epochs = trial.suggest_int('epochs', 80, 220, step=20)
+
+            # Memory-aware ranges to reduce OOM likelihood for larger latent sizes.
+            if args.latent_channels >= 256:
+                batch_min = 1
+                batch_max = 2
+                batch_step = 1
+                out_max = 24
+                seq_max = 28
+            elif args.latent_channels >= 128:
+                batch_min = 1
+                batch_max = 4
+                batch_step = 1
+                out_max = 24
+                seq_max = 30
+            elif args.latent_channels >= 32:
+                batch_min = 2
+                batch_max = 8
+                batch_step = 2
+                out_max = 32
+                seq_max = 34
+            elif args.latent_channels >= 16:
+                batch_min = 4
+                batch_max = 16
+                batch_step = 4
+                out_max = 40
+                seq_max = 38
+            else:
+                batch_min = 4
+                batch_max = 24
+                batch_step = 4
+                out_max = 48
+                seq_max = 40
+
+            args.batch_size = trial.suggest_int('batch_size', batch_min, batch_max, step=batch_step)
+            args.wcls = trial.suggest_float('w_reg_snn', 0.1, 100.0, log=True)
+            args.covariance_weight = trial.suggest_float('covariance_weight', 1e-7, 1e-2, log=True)
+            args.beta = trial.suggest_float('beta', 1e-4, 0.3, log=True)
+            args.lr = trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True)
+            args.lr_decay = trial.suggest_float('learning_rate_decay', 0.70, 0.99, step=0.01)
+            args.decay_step = trial.suggest_int('decay_step', 5, 30)
+            args.temperature = trial.suggest_int('temperature', 20, 200, step=10)
+            args.weight_decay = trial.suggest_float('weight_decay', 1e-7, 1e-4, log=True)
+
+            sequence_length = trial.suggest_int('sequence_length', 20, seq_max, step=2)
+            args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
+
+            dilation = trial.suggest_int('dilation', 1, 2)
+            args.dilation = [dilation, dilation, dilation, dilation]
+
+            out_channel = trial.suggest_int('out_channel', 16, out_max, step=8)
+            args.out_channels = [out_channel, out_channel, out_channel, 2 * out_channel]
 
         if args.age_latent_index < 0 or args.age_latent_index >= args.latent_channels:
             raise ValueError(
@@ -717,65 +1026,11 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
             )
 
         print(
-            f"Starting trial {trial.number + 1}/{args.n_trials} | latent={args.latent_channels} "
+            f"Starting trial {trial.number + 1}/{args.n_trials} | stage={stage} "
+            f"| latent={args.latent_channels} | conv={args.conv_type} "
             f"| mode={args.parallel_mode} | gpus={args.gpu_tag}",
             flush=True,
         )
-
-        # Trial ranges
-        args.threshold = trial.suggest_float('threshold', 0.01, 0.10, step=0.005)
-        args.epochs = trial.suggest_int('epochs', 80, 220, step=20)
-
-        # Memory-aware ranges to reduce OOM likelihood for larger latent sizes.
-        if args.latent_channels >= 256:
-            batch_min = 1
-            batch_max = 2
-            batch_step = 1
-            out_max = 24
-            seq_max = 28
-        elif args.latent_channels >= 128:
-            batch_min = 1
-            batch_max = 4
-            batch_step = 1
-            out_max = 24
-            seq_max = 30
-        elif args.latent_channels >= 32:
-            batch_min = 2
-            batch_max = 8
-            batch_step = 2
-            out_max = 32
-            seq_max = 34
-        elif args.latent_channels >= 16:
-            batch_min = 4
-            batch_max = 16
-            batch_step = 4
-            out_max = 40
-            seq_max = 38
-        else:
-            batch_min = 4
-            batch_max = 24
-            batch_step = 4
-            out_max = 48
-            seq_max = 40
-
-        args.batch_size = trial.suggest_int('batch_size', batch_min, batch_max, step=batch_step)
-        args.wcls = trial.suggest_float('w_reg_snn', 0.1, 100.0, log=True)
-        args.covariance_weight = trial.suggest_float('covariance_weight', 1e-7, 1e-2, log=True)
-        args.beta = trial.suggest_float('beta', 1e-4, 0.3, log=True)
-        args.lr = trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True)
-        args.lr_decay = trial.suggest_float('learning_rate_decay', 0.70, 0.99, step=0.01)
-        args.decay_step = trial.suggest_int('decay_step', 5, 30)
-        args.temperature = trial.suggest_int('temperature', 20, 200, step=10)
-        args.weight_decay = trial.suggest_float('weight_decay', 1e-7, 1e-4, log=True)
-
-        sequence_length = trial.suggest_int('sequence_length', 20, seq_max, step=2)
-        args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
-
-        dilation = trial.suggest_int('dilation', 1, 2)
-        args.dilation = [dilation, dilation, dilation, dilation]
-
-        out_channel = trial.suggest_int('out_channel', 16, out_max, step=8)
-        args.out_channels = [out_channel, out_channel, out_channel, 2 * out_channel]
 
         train_loader, train_eval_loader, val_loader = build_loaders(
             meshdata=meshdata,
@@ -801,6 +1056,11 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 down_transform_list,
                 up_transform_list,
                 device_ids=args.model_parallel_gpu_ids,
+                conv_type=args.conv_type,
+                adaptive_hidden=args.adaptive_hidden,
+                adaptive_dropout=args.adaptive_dropout,
+                adaptive_global_context=args.adaptive_global_context,
+                force_deterministic_latent=args.force_deterministic_latent,
             )
         else:
             model = AE(
@@ -810,6 +1070,11 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 spiral_indices_list,
                 down_transform_list,
                 up_transform_list,
+                conv_type=args.conv_type,
+                adaptive_hidden=args.adaptive_hidden,
+                adaptive_dropout=args.adaptive_dropout,
+                adaptive_global_context=args.adaptive_global_context,
+                force_deterministic_latent=args.force_deterministic_latent,
             ).to(primary_device)
 
         data_device = get_data_device(model, primary_device)
@@ -838,6 +1103,13 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 device=data_device,
                 meshdata=meshdata,
             )
+            if stage == 'stage1':
+                return {
+                    'distance': float(distance_epoch),
+                    'sap': float('nan'),
+                    'corr_abs': float('nan'),
+                    'corr_raw': float('nan'),
+                }
             age_metrics_epoch = evaluate_age_metrics_holdout(
                 model=model,
                 train_eval_loader=train_eval_loader,
@@ -911,10 +1183,12 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 trial.set_user_attr('latent_channels', int(args.latent_channels))
                 trial.set_user_attr('parallel_mode', str(args.parallel_mode))
                 trial.set_user_attr('gpu_tag', str(args.gpu_tag))
+                trial.set_user_attr('conv_type', str(args.conv_type))
+                trial.set_user_attr('stage', str(stage))
                 trial.set_user_attr('oom_message', str(exc))
                 print(
                     f"Trial {trial.number} pruned due to CUDA OOM on {args.gpu_tag} "
-                    f"latent={args.latent_channels}",
+                    f"stage={stage} latent={args.latent_channels} conv={args.conv_type}",
                     flush=True,
                 )
                 raise optuna.TrialPruned('CUDA OOM')
@@ -951,6 +1225,12 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 'latent_channels': args.latent_channels,
                 'parallel_mode': args.parallel_mode,
                 'model_parallel_gpu_ids': list(args.model_parallel_gpu_ids),
+                'stage': stage,
+                'conv_type': args.conv_type,
+                'adaptive_hidden': int(args.adaptive_hidden),
+                'adaptive_dropout': float(args.adaptive_dropout),
+                'adaptive_global_context': bool(args.adaptive_global_context),
+                'force_deterministic_latent': bool(args.force_deterministic_latent),
                 'seq_length': args.seq_length,
                 'dilation': args.dilation,
                 'age_label_index': args.age_label_index,
@@ -973,19 +1253,30 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
         )
 
         trial.set_user_attr('objective_split', 'val')
+        trial.set_user_attr('stage', str(stage))
         trial.set_user_attr('latent_channels', int(args.latent_channels))
         trial.set_user_attr('parallel_mode', str(args.parallel_mode))
         trial.set_user_attr('gpu_tag', str(args.gpu_tag))
+        trial.set_user_attr('conv_type', str(args.conv_type))
+        trial.set_user_attr('adaptive_hidden', int(args.adaptive_hidden))
+        trial.set_user_attr('adaptive_dropout', float(args.adaptive_dropout))
+        trial.set_user_attr(
+            'adaptive_global_context',
+            bool(args.adaptive_global_context),
+        )
         trial.set_user_attr('corr_per_latent', [float(v) for v in age_metrics['corr_per_latent']])
         trial.set_user_attr('r2_per_latent', [float(v) for v in age_metrics['r2_per_latent']])
+        trial.set_user_attr('euclidean_distance', float(euclidean_distance))
+        trial.set_user_attr('sap_age_holdout', float(age_metrics['sap_age']))
+        trial.set_user_attr('corr_target_abs', float(age_metrics['corr_target']))
         trial.set_user_attr('corr_target_raw', float(age_metrics['corr_target_raw']))
         trial.set_user_attr('prediction_fp', prediction_fp)
         trial.set_user_attr('model_fp', model_fp)
 
         print('')
         print(
-            f"Trial {trial.number} | latent={args.latent_channels} | mode={args.parallel_mode} "
-            f"| gpus={args.gpu_tag} | split=val"
+            f"Trial {trial.number} | stage={stage} | latent={args.latent_channels} | mode={args.parallel_mode} "
+            f"| conv={args.conv_type} | gpus={args.gpu_tag} | split=val"
         )
         print(f"Euclidean Distance (val): {euclidean_distance:.6f}")
         print(f"SAP Score Age Holdout (train->val): {age_metrics['sap_age']:.6f}")
@@ -997,7 +1288,11 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
         )
         print('')
 
-        return euclidean_distance, age_metrics['sap_age'], age_metrics['corr_target']
+        if stage == 'stage1':
+            return (euclidean_distance,)
+        if stage == 'stage2':
+            return (age_metrics['sap_age'], age_metrics['corr_target'])
+        return (euclidean_distance, age_metrics['sap_age'], age_metrics['corr_target'])
 
     return objective
 
@@ -1005,8 +1300,12 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
 def main(argv=None):
     args = parse_args(argv)
 
-    resolve_latent_config(args)
     resolve_parallel_config(args)
+    resolve_conv_config(args)
+    resolve_stage_config(args)
+    resolve_latent_config(args)
+    if args.optuna_stage == 'stage1':
+        args.latent_tag = 'stage1search'
 
     if args.age_latent_index < 0:
         raise ValueError('age_latent_index must be >= 0')
@@ -1047,6 +1346,25 @@ def main(argv=None):
         print(f"Parallel mode: {args.parallel_mode}")
         print(f"GPU ids: {args.model_parallel_gpu_ids}")
         print(f"Primary device: {primary_device}")
+        print(f"Optuna stage: {args.optuna_stage}")
+        print(
+            f"Conv type: {args.conv_type} "
+            f"(optimize_conv_type={args.optimize_conv_type})"
+        )
+        if args.conv_type == 'adaptive_spiral' or args.optimize_conv_type:
+            print(
+                "Adaptive conv params: "
+                f"hidden={args.adaptive_hidden}, "
+                f"dropout={args.adaptive_dropout}, "
+                f"global_context={args.adaptive_global_context}"
+            )
+        if args.optuna_stage == 'stage1':
+            print(f"Stage-1 latent choices: {args.latent_choices}")
+            print("Stage-1 loss mode: reconstruction only (KL/SNN/COV disabled)")
+        if args.optuna_stage == 'stage2':
+            print(f"Stage-2 fixed latent: {args.latent_channels}")
+            if args.stage1_summary_fp:
+                print(f"Stage-2 latent source summary: {args.stage1_summary_fp}")
 
         print(args.data_fp)
         template_fp = osp.join(args.data_fp, 'template', 'template.ply')
@@ -1075,14 +1393,23 @@ def main(argv=None):
             latent_channels=args.max_latent_channels,
         )
 
-        sampler = optuna.samplers.NSGAIISampler(seed=args.seed)
+        if args.optuna_stage == 'stage1':
+            directions = ['minimize']
+            sampler = optuna.samplers.TPESampler(seed=args.seed)
+        elif args.optuna_stage == 'stage2':
+            directions = ['maximize', 'maximize']
+            sampler = optuna.samplers.NSGAIISampler(seed=args.seed)
+        else:
+            directions = ['minimize', 'maximize', 'maximize']
+            sampler = optuna.samplers.NSGAIISampler(seed=args.seed)
+
         study_kwargs = {
-            'directions': ['minimize', 'maximize', 'maximize'],
+            'directions': directions,
             'sampler': sampler,
         }
         if args.storage:
             study_kwargs['storage'] = args.storage
-            study_kwargs['study_name'] = args.study_name or args.exp_name
+            study_kwargs['study_name'] = args.study_name or f"{args.exp_name}_{args.optuna_stage}"
             study_kwargs['load_if_exists'] = True
         elif args.study_name:
             study_kwargs['study_name'] = args.study_name
