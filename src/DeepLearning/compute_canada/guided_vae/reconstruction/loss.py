@@ -69,7 +69,9 @@ class SNNLCrossEntropy():
         :returns: A tensor for the row normalized exponentiated pairwise distance
                   between all the elements of x.
         """
-        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(x.shape[0], device='cuda:1')
+        f = SNNLCrossEntropy.fits(x, x, temp, cos_distance) - torch.eye(
+            x.shape[0], device=x.device
+        )
         return f / (SNNLCrossEntropy.STABILITY_EPS + f.sum(axis=1).unsqueeze(1))
     
     @staticmethod
@@ -206,8 +208,9 @@ class SNNLoss(nn.Module):
         self.STABILITY_EPS = 0.00001
 
     def forward(self, x, y):
+        device = x.device
         b = x.size(0)  # Batch size
-        y = y.squeeze()
+        y = y.squeeze().to(device)
 
         x_expanded = x[:,0].unsqueeze(1)  # Expand dimensions for broadcasting
         y_expanded = y.unsqueeze(0)
@@ -217,31 +220,34 @@ class SNNLoss(nn.Module):
         #squared_distances = (x_expanded - x_expanded.t()) ** 2
         squared_distances = torch.matmul(x_expanded, x_expanded.t())
         exp_distances = torch.exp(squared_distances / self.T)
-        exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+        exp_distances = exp_distances * (1 - torch.eye(b, device=device))
         #print(exp_distances)
 
         numerator = exp_distances * same_class_mask
         denominator = exp_distances
         # remaining elements
-        exp_distances_all = torch.zeros_like(exp_distances, device='cuda:1')
+        exp_distances_all = torch.zeros_like(exp_distances, device=device)
         for i in range(1, x.shape[1]):
             x_expanded = x[:,i].unsqueeze(1)
             #squared_distances = (x_expanded - x_expanded.t()) ** 2
             squared_distances = torch.matmul(x_expanded, x_expanded.t())
             exp_distances = torch.exp(squared_distances / self.T)
-            exp_distances = exp_distances * (1 - torch.eye(b, device='cuda:1'))
+            exp_distances = exp_distances * (1 - torch.eye(b, device=device))
             exp_distances = exp_distances * same_class_mask
             exp_distances_all = exp_distances_all + exp_distances
 
         
-        denominator1 = exp_distances_all/float(x.shape[1]-1)
+        if x.shape[1] > 1:
+            denominator1 = exp_distances_all / float(x.shape[1] - 1)
+        else:
+            denominator1 = torch.zeros_like(exp_distances, device=device)
         #print(denominator)
 
         #lsn_loss = -torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
                                                                             #+ (self.lamda2*denominator1.sum(dim=1))))).mean()
         
         class_counts = torch.bincount(y.long())
-        class_counts = class_counts.float().to('cuda:1') 
+        class_counts = class_counts.float().to(device)
 
         lsn_loss = ((-torch.log(self.STABILITY_EPS + (numerator.sum(dim=1) / (self.STABILITY_EPS + (self.lamda1*denominator.sum(dim=1)) 
                                                                     + (self.lamda2*denominator1.sum(dim=1)))))) / class_counts[y.long()]).mean()
