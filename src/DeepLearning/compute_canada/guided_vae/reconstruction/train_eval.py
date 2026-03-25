@@ -13,11 +13,15 @@ from reconstruction.loss import (
 
 
 def loss_function(original, reconstruction, mu, log_var, beta):
+    if original.device != reconstruction.device:
+        original = original.to(reconstruction.device, non_blocking=True)
     reconstruction_loss = F.l1_loss(reconstruction, original, reduction='mean')
     kld_loss = torch.mean(
         -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1),
         dim=0,
     )
+    if kld_loss.device != reconstruction_loss.device:
+        kld_loss = kld_loss.to(reconstruction_loss.device, non_blocking=True)
     return reconstruction_loss + beta * kld_loss
 
 
@@ -207,21 +211,35 @@ def train(
 
         if guided:
             # Legacy classification branch; disabled by default in current setup.
-            loss_cls = F.binary_cross_entropy(re, label[:, :, 0], reduction='mean')
+            label_cls = label[:, :, 0]
+            if label_cls.device != re.device:
+                label_cls = label_cls.to(re.device, non_blocking=True)
+            loss_cls = F.binary_cross_entropy(re, label_cls, reduction='mean')
             loss = loss + (loss_cls * w_cls)
 
         if guided_contrastive_loss and snn_cls_criterion is not None:
-            loss_snn_cls = snn_cls_criterion(z, label[:, :, 0])
+            label_cls = label[:, :, 0]
+            if label_cls.device != z.device:
+                label_cls = label_cls.to(z.device, non_blocking=True)
+            loss_snn_cls = snn_cls_criterion(z, label_cls)
             loss = loss + (loss_snn_cls * w_cls)
 
         if guided_contrastive_loss and snn_reg_criterion is not None:
             age_target = label[:, :, age_label_index]
+            if age_target.device != z.device:
+                age_target = age_target.to(z.device, non_blocking=True)
             loss_snn_reg = snn_reg_criterion(z, age_target)
             loss = loss + (loss_snn_reg * w_cls)
 
         if correlation_loss and corr_cls_criterion is not None and corr_reg_criterion is not None:
-            loss_corr_cls = corr_cls_criterion(z, label[:, :, 0])
-            loss_corr_reg = corr_reg_criterion(z, label[:, :, age_label_index])
+            label_cls = label[:, :, 0]
+            label_reg = label[:, :, age_label_index]
+            if label_cls.device != z.device:
+                label_cls = label_cls.to(z.device, non_blocking=True)
+            if label_reg.device != z.device:
+                label_reg = label_reg.to(z.device, non_blocking=True)
+            loss_corr_cls = corr_cls_criterion(z, label_cls)
+            loss_corr_reg = corr_reg_criterion(z, label_reg)
             loss = loss + (loss_corr_cls * w_cls) + (loss_corr_reg * w_cls)
 
         if cov_criterion is not None and covariance_weight > 0.0:
@@ -262,7 +280,10 @@ def test(model, loader, device, beta, age_label_index=1):
                 continue
 
             # Keep age regression head active in validation stats.
-            _ = F.mse_loss(re_2, y[:, :, age_label_index], reduction='mean')
+            y_age = y[:, :, age_label_index]
+            if y_age.device != re_2.device:
+                y_age = y_age.to(re_2.device, non_blocking=True)
+            _ = F.mse_loss(re_2, y_age, reduction='mean')
             total_loss += float(loss_function(x, pred, mu, log_var, beta).item())
             used_batches += 1
 

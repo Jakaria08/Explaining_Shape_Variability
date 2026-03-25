@@ -22,18 +22,18 @@ from torch.utils.data import Subset
 
 _THIS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _THIS_DIR.parent
-_UTILS_ROOT = _PROJECT_ROOT / 'utils'
+_PACKAGE_PARENT = _PROJECT_ROOT.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
-if str(_UTILS_ROOT) not in sys.path:
-    sys.path.insert(0, str(_UTILS_ROOT))
+if str(_PACKAGE_PARENT) not in sys.path:
+    sys.path.insert(0, str(_PACKAGE_PARENT))
 
 from datasets import MeshData
-from reconstruction import AE, eval_error, run
-from dataloader import DataLoader
-import mesh_sampling
-import utils as gv_utils
-from sap_holdout import sap_regression_holdout
+from reconstruction import AE, AEModelParallel, eval_error, run
+from guided_vae.utils.dataloader import DataLoader
+from guided_vae.utils import mesh_sampling
+from guided_vae.utils import utils as gv_utils
+from guided_vae.utils.sap_holdout import sap_regression_holdout
 
 
 DEFAULT_WORK_DIR = "/home/jakaria/Explaining_Shape_Variability/src/DeepLearning/compute_canada/guided_vae"
@@ -76,10 +76,12 @@ def parse_args(argv=None):
     parser.add_argument('--test_exp', type=str, default='bareteeth')
     parser.add_argument('--n_threads', type=int, default=4)
     parser.add_argument('--device_idx', type=int, default=0)
+    parser.add_argument('--parallel_mode', type=str, default='model', choices=['single', 'model'])
+    parser.add_argument('--model_parallel_gpus', type=str, default='0,1,2')
 
     # network hyperparameters
     parser.add_argument('--out_channels', nargs='+', default=[32, 32, 32, 64], type=int)
-    parser.add_argument('--latent_channels', type=int, default=8)
+    parser.add_argument('--latent_channels', type=int, default=256)
     parser.add_argument('--in_channels', type=int, default=3)
     parser.add_argument('--seq_length', type=int, default=[9, 9, 9, 9], nargs='+')
     parser.add_argument('--dilation', type=int, default=[1, 1, 1, 1], nargs='+')
@@ -122,6 +124,10 @@ def parse_args(argv=None):
     parser.add_argument('--train_subset_fraction', type=float, default=1.0)
     parser.add_argument('--print_epoch_objectives', type=str2bool, default=True)
     parser.add_argument('--epoch_objective_interval', type=int, default=10)
+    parser.add_argument('--optimize_latent', type=str2bool, default=False)
+    parser.add_argument('--latent_choices', nargs='+', type=int, default=[256])
+    parser.add_argument('--study_name', type=str, default='')
+    parser.add_argument('--storage', type=str, default='')
 
     # paths
     parser.add_argument('--work_dir', type=str, default=DEFAULT_WORK_DIR)
@@ -138,6 +144,62 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def _validate_latent_choices(choices):
+    if len(choices) == 0:
+        raise ValueError('latent_choices cannot be empty when optimize_latent is enabled')
+    invalid = [int(c) for c in choices if int(c) < 2]
+    if invalid:
+        raise ValueError(
+            f'latent_choices must be integers >= 2; got invalid values {sorted(set(invalid))}'
+        )
+
+
+def resolve_latent_config(args):
+    if args.optimize_latent:
+        choices = sorted({int(c) for c in args.latent_choices})
+        _validate_latent_choices(choices)
+        args.latent_choices = choices
+        args.max_latent_channels = max(choices)
+        args.min_latent_channels = min(choices)
+        args.latent_tag = 'search'
+    else:
+        if int(args.latent_channels) < 2:
+            raise ValueError(
+                f'latent_channels must be >= 2, got {args.latent_channels}.'
+            )
+        args.latent_choices = [int(args.latent_channels)]
+        args.max_latent_channels = int(args.latent_channels)
+        args.min_latent_channels = int(args.latent_channels)
+        args.latent_tag = str(args.latent_channels)
+
+
+def parse_gpu_ids(gpu_text):
+    parts = [p.strip() for p in str(gpu_text).split(',') if p.strip()]
+    if len(parts) == 0:
+        raise ValueError('model_parallel_gpus cannot be empty.')
+    gpu_ids = []
+    for part in parts:
+        gpu_ids.append(int(part))
+    return gpu_ids
+
+
+def resolve_parallel_config(args):
+    args.parallel_mode = str(args.parallel_mode).strip().lower()
+    if args.parallel_mode not in {'single', 'model'}:
+        raise ValueError("parallel_mode must be one of {'single', 'model'}.")
+
+    if args.parallel_mode == 'model':
+        gpu_ids = parse_gpu_ids(args.model_parallel_gpus)
+        if len(gpu_ids) < 2:
+            raise ValueError('Model-parallel mode requires at least 2 GPUs.')
+        args.model_parallel_gpu_ids = gpu_ids
+        args.device_idx = int(gpu_ids[0])
+        args.gpu_tag = 'g' + '-'.join(str(i) for i in gpu_ids)
+    else:
+        args.model_parallel_gpu_ids = [int(args.device_idx)]
+        args.gpu_tag = f'g{int(args.device_idx)}'
+
+
 def resolve_paths(args):
     args.data_fp = osp.join(args.work_dir, 'data', args.dataset)
     args.out_dir = osp.join(args.work_dir, 'data', 'out', args.exp_name)
@@ -150,37 +212,37 @@ def resolve_paths(args):
     if not args.trial_metrics_fp:
         args.trial_metrics_fp = osp.join(
             args.models_root,
-            f'trial_metrics_gpu{args.device_idx}_latent{args.latent_channels}.csv',
+            f'trial_metrics_{args.gpu_tag}_latent{args.latent_tag}.csv',
         )
 
     if not args.intermediate_trials_fp:
         args.intermediate_trials_fp = osp.join(
             args.models_root,
-            f'intermediate_trials_gpu{args.device_idx}_latent{args.latent_channels}.pt',
+            f'intermediate_trials_{args.gpu_tag}_latent{args.latent_tag}.pt',
         )
 
     if not args.trial_predictions_dir:
         args.trial_predictions_dir = osp.join(
             args.models_root,
-            f'trial_predictions_gpu{args.device_idx}_latent{args.latent_channels}',
+            f'trial_predictions_{args.gpu_tag}_latent{args.latent_tag}',
         )
 
     if not args.trial_models_dir:
         args.trial_models_dir = osp.join(
             args.models_root,
-            f'trial_models_gpu{args.device_idx}_latent{args.latent_channels}',
+            f'trial_models_{args.gpu_tag}_latent{args.latent_tag}',
         )
 
     if not args.study_summary_fp:
         args.study_summary_fp = osp.join(
             args.models_root,
-            f'study_summary_gpu{args.device_idx}_latent{args.latent_channels}.json',
+            f'study_summary_{args.gpu_tag}_latent{args.latent_tag}.json',
         )
 
     if not args.study_trials_csv_fp:
         args.study_trials_csv_fp = osp.join(
             args.models_root,
-            f'study_trials_gpu{args.device_idx}_latent{args.latent_channels}.csv',
+            f'study_trials_{args.gpu_tag}_latent{args.latent_tag}.csv',
         )
 
     if not args.log_dir:
@@ -189,7 +251,7 @@ def resolve_paths(args):
     if not args.log_fp:
         args.log_fp = osp.join(
             args.log_dir,
-            f'{args.exp_name}_gpu{args.device_idx}_latent{args.latent_channels}.log',
+            f'{args.exp_name}_{args.gpu_tag}_latent{args.latent_tag}.log',
         )
 
     gv_utils.makedirs(args.trial_predictions_dir)
@@ -278,26 +340,32 @@ def load_or_generate_transform(template_fp, transform_fp):
 
 
 def build_spiral_indices(transform_data, seq_length, dilation, device):
-    return [
+    spirals = [
         gv_utils.preprocess_spiral(
             transform_data['face'][idx],
             seq_length[idx],
             transform_data['vertices'][idx],
             dilation[idx],
-        ).to(device)
+        )
         for idx in range(len(transform_data['face']) - 1)
     ]
+    if device is None:
+        return spirals
+    return [s.to(device) for s in spirals]
 
 
 def build_sparse_transforms(transform_data, device):
     down_transform_list = [
-        gv_utils.to_sparse(down_transform).to(device)
+        gv_utils.to_sparse(down_transform)
         for down_transform in transform_data['down_transform']
     ]
     up_transform_list = [
-        gv_utils.to_sparse(up_transform).to(device)
+        gv_utils.to_sparse(up_transform)
         for up_transform in transform_data['up_transform']
     ]
+    if device is not None:
+        down_transform_list = [t.to(device) for t in down_transform_list]
+        up_transform_list = [t.to(device) for t in up_transform_list]
     return down_transform_list, up_transform_list
 
 
@@ -322,6 +390,13 @@ def sanitize_metric(x, fallback=0.0):
     if math.isnan(x) or math.isinf(x):
         return float(fallback)
     return x
+
+
+def get_data_device(model, fallback_device):
+    model_device = getattr(model, 'input_device', None)
+    if model_device is not None:
+        return model_device
+    return fallback_device
 
 
 def compute_euclidean_distance(model, data_loader, device, meshdata):
@@ -482,6 +557,7 @@ class TrialLogger:
             base_cols = [
                 'trial',
                 'objective_split',
+                'latent_channels',
                 'euclidean_distance',
                 'sap_score_age_holdout',
                 'correlation_age_target_latent',
@@ -526,9 +602,14 @@ class TrialLogger:
         model_fp = str(trial.user_attrs.get('model_fp', ''))
         objective_split = str(trial.user_attrs.get('objective_split', 'val'))
 
+        latent_channels_used = int(
+            trial.params.get('latent_channels', trial.user_attrs.get('latent_channels', self.latent_channels))
+        )
+
         row = [
             str(trial.number),
             objective_split,
+            str(latent_channels_used),
             self._f(euc),
             self._f(sap_age),
             self._f(corr_target),
@@ -613,21 +694,71 @@ def save_study_artifacts(study, args):
             ])
 
 
-def create_objective(base_args, meshdata, transform_data, device):
-    down_transform_list, up_transform_list = build_sparse_transforms(transform_data, device)
+def create_objective(base_args, meshdata, transform_data, primary_device):
+    transform_device = None if base_args.parallel_mode == 'model' else primary_device
+    down_transform_list, up_transform_list = build_sparse_transforms(
+        transform_data,
+        transform_device,
+    )
 
     def objective(trial):
         args = copy.deepcopy(base_args)
 
+        if args.optimize_latent:
+            args.latent_channels = int(
+                trial.suggest_categorical('latent_channels', args.latent_choices)
+            )
+        else:
+            args.latent_channels = int(args.latent_channels)
+
+        if args.age_latent_index < 0 or args.age_latent_index >= args.latent_channels:
+            raise ValueError(
+                f"age_latent_index={args.age_latent_index} must be in [0, {args.latent_channels - 1}]"
+            )
+
         print(
-            f"Starting trial {trial.number + 1}/{args.n_trials} | latent={args.latent_channels} | gpu={args.device_idx}",
+            f"Starting trial {trial.number + 1}/{args.n_trials} | latent={args.latent_channels} "
+            f"| mode={args.parallel_mode} | gpus={args.gpu_tag}",
             flush=True,
         )
 
-        # Trial ranges (latent size is fixed per launcher/file)
+        # Trial ranges
         args.threshold = trial.suggest_float('threshold', 0.01, 0.10, step=0.005)
         args.epochs = trial.suggest_int('epochs', 80, 220, step=20)
-        args.batch_size = trial.suggest_int('batch_size', 4, 24, step=4)
+
+        # Memory-aware ranges to reduce OOM likelihood for larger latent sizes.
+        if args.latent_channels >= 256:
+            batch_min = 1
+            batch_max = 2
+            batch_step = 1
+            out_max = 24
+            seq_max = 28
+        elif args.latent_channels >= 128:
+            batch_min = 1
+            batch_max = 4
+            batch_step = 1
+            out_max = 24
+            seq_max = 30
+        elif args.latent_channels >= 32:
+            batch_min = 2
+            batch_max = 8
+            batch_step = 2
+            out_max = 32
+            seq_max = 34
+        elif args.latent_channels >= 16:
+            batch_min = 4
+            batch_max = 16
+            batch_step = 4
+            out_max = 40
+            seq_max = 38
+        else:
+            batch_min = 4
+            batch_max = 24
+            batch_step = 4
+            out_max = 48
+            seq_max = 40
+
+        args.batch_size = trial.suggest_int('batch_size', batch_min, batch_max, step=batch_step)
         args.wcls = trial.suggest_float('w_reg_snn', 0.1, 100.0, log=True)
         args.covariance_weight = trial.suggest_float('covariance_weight', 1e-7, 1e-2, log=True)
         args.beta = trial.suggest_float('beta', 1e-4, 0.3, log=True)
@@ -637,13 +768,13 @@ def create_objective(base_args, meshdata, transform_data, device):
         args.temperature = trial.suggest_int('temperature', 20, 200, step=10)
         args.weight_decay = trial.suggest_float('weight_decay', 1e-7, 1e-4, log=True)
 
-        sequence_length = trial.suggest_int('sequence_length', 20, 40, step=2)
+        sequence_length = trial.suggest_int('sequence_length', 20, seq_max, step=2)
         args.seq_length = [sequence_length, sequence_length, sequence_length, sequence_length]
 
         dilation = trial.suggest_int('dilation', 1, 2)
         args.dilation = [dilation, dilation, dilation, dilation]
 
-        out_channel = trial.suggest_int('out_channel', 16, 48, step=8)
+        out_channel = trial.suggest_int('out_channel', 16, out_max, step=8)
         args.out_channels = [out_channel, out_channel, out_channel, 2 * out_channel]
 
         train_loader, train_eval_loader, val_loader = build_loaders(
@@ -653,21 +784,35 @@ def create_objective(base_args, meshdata, transform_data, device):
             seed=args.seed + trial.number,
         )
 
+        spiral_device = None if args.parallel_mode == 'model' else primary_device
         spiral_indices_list = build_spiral_indices(
             transform_data=transform_data,
             seq_length=args.seq_length,
             dilation=args.dilation,
-            device=device,
+            device=spiral_device,
         )
 
-        model = AE(
-            args.in_channels,
-            args.out_channels,
-            args.latent_channels,
-            spiral_indices_list,
-            down_transform_list,
-            up_transform_list,
-        ).to(device)
+        if args.parallel_mode == 'model':
+            model = AEModelParallel(
+                args.in_channels,
+                args.out_channels,
+                args.latent_channels,
+                spiral_indices_list,
+                down_transform_list,
+                up_transform_list,
+                device_ids=args.model_parallel_gpu_ids,
+            )
+        else:
+            model = AE(
+                args.in_channels,
+                args.out_channels,
+                args.latent_channels,
+                spiral_indices_list,
+                down_transform_list,
+                up_transform_list,
+            ).to(primary_device)
+
+        data_device = get_data_device(model, primary_device)
 
         optimizer = torch.optim.Adam(
             model.parameters(),
@@ -690,14 +835,14 @@ def create_objective(base_args, meshdata, transform_data, device):
             distance_epoch = compute_euclidean_distance(
                 model=model,
                 data_loader=val_loader,
-                device=device,
+                device=data_device,
                 meshdata=meshdata,
             )
             age_metrics_epoch = evaluate_age_metrics_holdout(
                 model=model,
                 train_eval_loader=train_eval_loader,
                 eval_loader=val_loader,
-                device=device,
+                device=data_device,
                 age_label_index=args.age_label_index,
                 age_latent_index=args.age_latent_index,
             )
@@ -709,58 +854,75 @@ def create_objective(base_args, meshdata, transform_data, device):
                 'corr_raw': float(age_metrics_epoch['corr_target_raw']),
             }
 
-        run(
-            model=model,
-            train_loader=train_loader,
-            test_loader=val_loader,
-            epochs=args.epochs,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            writer=None,
-            device=device,
-            beta=args.beta,
-            w_cls=args.wcls,
-            guided=args.guided,
-            guided_contrastive_loss=args.guided_contrastive_loss,
-            correlation_loss=args.correlation_loss,
-            latent_channels=args.latent_channels,
-            weight_decay_c=args.weight_decay_c,
-            temp=args.temperature,
-            delta=args.delta,
-            lambda1=args.lambda1,
-            lambda2=args.lambda2,
-            threshold=args.threshold,
-            age_label_index=args.age_label_index,
-            age_latent_index=args.age_latent_index,
-            use_snn_cls=args.use_snn_cls,
-            use_snn_reg=args.use_snn_reg,
-            use_covariance=args.use_covariance,
-            covariance_weight=args.covariance_weight,
-            save_checkpoints=False,
-            epoch_objective_callback=(
-                epoch_objective_callback if args.print_epoch_objectives else None
-            ),
-            objective_log_interval=args.epoch_objective_interval,
-            trial_number=trial.number,
-            total_trials=args.n_trials,
-        )
+        try:
+            run(
+                model=model,
+                train_loader=train_loader,
+                test_loader=val_loader,
+                epochs=args.epochs,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                writer=None,
+                device=data_device,
+                beta=args.beta,
+                w_cls=args.wcls,
+                guided=args.guided,
+                guided_contrastive_loss=args.guided_contrastive_loss,
+                correlation_loss=args.correlation_loss,
+                latent_channels=args.latent_channels,
+                weight_decay_c=args.weight_decay_c,
+                temp=args.temperature,
+                delta=args.delta,
+                lambda1=args.lambda1,
+                lambda2=args.lambda2,
+                threshold=args.threshold,
+                age_label_index=args.age_label_index,
+                age_latent_index=args.age_latent_index,
+                use_snn_cls=args.use_snn_cls,
+                use_snn_reg=args.use_snn_reg,
+                use_covariance=args.use_covariance,
+                covariance_weight=args.covariance_weight,
+                save_checkpoints=False,
+                epoch_objective_callback=(
+                    epoch_objective_callback if args.print_epoch_objectives else None
+                ),
+                objective_log_interval=args.epoch_objective_interval,
+                trial_number=trial.number,
+                total_trials=args.n_trials,
+            )
 
-        # Hyperparameter objective is validation-only (no test-set optimization).
-        euclidean_distance = eval_error(model, val_loader, device, meshdata, args.out_dir)
-        euclidean_distance = sanitize_metric(euclidean_distance, fallback=1e9)
+            # Hyperparameter objective is validation-only (no test-set optimization).
+            euclidean_distance = eval_error(model, val_loader, data_device, meshdata, args.out_dir)
+            euclidean_distance = sanitize_metric(euclidean_distance, fallback=1e9)
 
-        age_metrics = evaluate_age_metrics_holdout(
-            model=model,
-            train_eval_loader=train_eval_loader,
-            eval_loader=val_loader,
-            device=device,
-            age_label_index=args.age_label_index,
-            age_latent_index=args.age_latent_index,
-        )
+            age_metrics = evaluate_age_metrics_holdout(
+                model=model,
+                train_eval_loader=train_eval_loader,
+                eval_loader=val_loader,
+                device=data_device,
+                age_label_index=args.age_label_index,
+                age_latent_index=args.age_latent_index,
+            )
+        except RuntimeError as exc:
+            if 'out of memory' in str(exc).lower():
+                torch.cuda.empty_cache()
+                trial.set_user_attr('objective_split', 'val')
+                trial.set_user_attr('oom', True)
+                trial.set_user_attr('latent_channels', int(args.latent_channels))
+                trial.set_user_attr('parallel_mode', str(args.parallel_mode))
+                trial.set_user_attr('gpu_tag', str(args.gpu_tag))
+                trial.set_user_attr('oom_message', str(exc))
+                print(
+                    f"Trial {trial.number} pruned due to CUDA OOM on {args.gpu_tag} "
+                    f"latent={args.latent_channels}",
+                    flush=True,
+                )
+                raise optuna.TrialPruned('CUDA OOM')
+            raise
 
         prediction_fp = osp.join(
             args.trial_predictions_dir,
-            f'trial_{trial.number:04d}_predictions.pt',
+            f'trial_{trial.number:04d}_latent{args.latent_channels}_predictions.pt',
         )
         torch.save(
             {
@@ -777,7 +939,7 @@ def create_objective(base_args, meshdata, transform_data, device):
 
         model_fp = osp.join(
             args.trial_models_dir,
-            f'trial_{trial.number:04d}_model.pt',
+            f'trial_{trial.number:04d}_latent{args.latent_channels}_model.pt',
         )
         torch.save(
             {
@@ -787,6 +949,8 @@ def create_objective(base_args, meshdata, transform_data, device):
                 'in_channels': args.in_channels,
                 'out_channels': args.out_channels,
                 'latent_channels': args.latent_channels,
+                'parallel_mode': args.parallel_mode,
+                'model_parallel_gpu_ids': list(args.model_parallel_gpu_ids),
                 'seq_length': args.seq_length,
                 'dilation': args.dilation,
                 'age_label_index': args.age_label_index,
@@ -809,6 +973,9 @@ def create_objective(base_args, meshdata, transform_data, device):
         )
 
         trial.set_user_attr('objective_split', 'val')
+        trial.set_user_attr('latent_channels', int(args.latent_channels))
+        trial.set_user_attr('parallel_mode', str(args.parallel_mode))
+        trial.set_user_attr('gpu_tag', str(args.gpu_tag))
         trial.set_user_attr('corr_per_latent', [float(v) for v in age_metrics['corr_per_latent']])
         trial.set_user_attr('r2_per_latent', [float(v) for v in age_metrics['r2_per_latent']])
         trial.set_user_attr('corr_target_raw', float(age_metrics['corr_target_raw']))
@@ -817,7 +984,8 @@ def create_objective(base_args, meshdata, transform_data, device):
 
         print('')
         print(
-            f"Trial {trial.number} | latent={args.latent_channels} | gpu={args.device_idx} | split=val"
+            f"Trial {trial.number} | latent={args.latent_channels} | mode={args.parallel_mode} "
+            f"| gpus={args.gpu_tag} | split=val"
         )
         print(f"Euclidean Distance (val): {euclidean_distance:.6f}")
         print(f"SAP Score Age Holdout (train->val): {age_metrics['sap_age']:.6f}")
@@ -837,14 +1005,15 @@ def create_objective(base_args, meshdata, transform_data, device):
 def main(argv=None):
     args = parse_args(argv)
 
-    if args.latent_channels not in {8, 12, 16}:
-        raise ValueError(
-            f"latent_channels must be one of {{8, 12, 16}} for this setup, got {args.latent_channels}."
-        )
+    resolve_latent_config(args)
+    resolve_parallel_config(args)
 
-    if args.age_latent_index < 0 or args.age_latent_index >= args.latent_channels:
+    if args.age_latent_index < 0:
+        raise ValueError('age_latent_index must be >= 0')
+
+    if args.age_latent_index >= args.min_latent_channels:
         raise ValueError(
-            f"age_latent_index={args.age_latent_index} must be in [0, {args.latent_channels - 1}]"
+            f"age_latent_index={args.age_latent_index} must be < smallest latent choice {args.min_latent_channels}"
         )
 
     if args.epoch_objective_interval < 1:
@@ -859,12 +1028,25 @@ def main(argv=None):
     try:
         log_handle, original_stdout, original_stderr = setup_logging(args.log_fp)
 
-        device = torch.device('cuda', args.device_idx)
+        if not torch.cuda.is_available():
+            raise RuntimeError('CUDA is required for this training script.')
+        available_gpus = torch.cuda.device_count()
+        for gpu_id in args.model_parallel_gpu_ids:
+            if gpu_id < 0 or gpu_id >= available_gpus:
+                raise ValueError(
+                    f'GPU id {gpu_id} is invalid for this host (available: 0..{available_gpus - 1}).'
+                )
+        primary_device = torch.device('cuda', args.model_parallel_gpu_ids[0])
+
         torch.set_num_threads(args.n_threads)
 
         set_seed(args.seed)
         cudnn.benchmark = False
         cudnn.deterministic = True
+
+        print(f"Parallel mode: {args.parallel_mode}")
+        print(f"GPU ids: {args.model_parallel_gpu_ids}")
+        print(f"Primary device: {primary_device}")
 
         print(args.data_fp)
         template_fp = osp.join(args.data_fp, 'template', 'template.ply')
@@ -884,20 +1066,28 @@ def main(argv=None):
             base_args=args,
             meshdata=meshdata,
             transform_data=transform_data,
-            device=device,
+            primary_device=primary_device,
         )
 
         trial_logger = TrialLogger(
             metrics_fp=args.trial_metrics_fp,
             trials_fp=args.intermediate_trials_fp,
-            latent_channels=args.latent_channels,
+            latent_channels=args.max_latent_channels,
         )
 
         sampler = optuna.samplers.NSGAIISampler(seed=args.seed)
-        study = optuna.create_study(
-            directions=['minimize', 'maximize', 'maximize'],
-            sampler=sampler,
-        )
+        study_kwargs = {
+            'directions': ['minimize', 'maximize', 'maximize'],
+            'sampler': sampler,
+        }
+        if args.storage:
+            study_kwargs['storage'] = args.storage
+            study_kwargs['study_name'] = args.study_name or args.exp_name
+            study_kwargs['load_if_exists'] = True
+        elif args.study_name:
+            study_kwargs['study_name'] = args.study_name
+
+        study = optuna.create_study(**study_kwargs)
         study.optimize(objective, n_trials=args.n_trials, callbacks=[trial_logger])
 
         save_study_artifacts(study, args)
