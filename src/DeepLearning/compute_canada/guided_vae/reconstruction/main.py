@@ -239,40 +239,43 @@ def resolve_conv_config(args):
 
 
 def _extract_latent_from_summary(summary_dict):
-    candidate_paths = [
-        ('best_by_distance_metric',),
-        ('best_by_distance',),
-        ('best_by_objective', 0),
-    ]
-
-    for path in candidate_paths:
-        node = summary_dict
-        valid = True
-        for key in path:
-            if isinstance(key, int):
-                if not isinstance(node, list) or len(node) <= key:
-                    valid = False
-                    break
-                node = node[key]
-            else:
-                if not isinstance(node, dict) or key not in node:
-                    valid = False
-                    break
-                node = node[key]
-        if not valid or not isinstance(node, dict):
-            continue
-
-        params = node.get('params', {})
-        user_attrs = node.get('user_attrs', {})
-        latent = params.get('latent_channels', user_attrs.get('latent_channels', None))
-        if latent is not None:
-            latent = int(latent)
-            if latent >= 2:
-                return latent
+    best_trial = _extract_stage1_best_trial(summary_dict)
+    params = best_trial.get('params', {})
+    user_attrs = best_trial.get('user_attrs', {})
+    latent = params.get('latent_channels', user_attrs.get('latent_channels', None))
+    if latent is not None:
+        latent = int(latent)
+        if latent >= 2:
+            return latent
 
     raise ValueError(
         'Could not extract latent_channels from stage-1 summary. '
         'Expected keys like best_by_distance_metric / best_by_distance / best_by_objective.'
+    )
+
+
+def _extract_stage1_best_trial(summary_dict):
+    best_by_distance = summary_dict.get('best_by_distance', None)
+    if isinstance(best_by_distance, dict):
+        return best_by_distance
+
+    best_by_distance_metric = summary_dict.get('best_by_distance_metric', None)
+    if isinstance(best_by_distance_metric, dict):
+        return best_by_distance_metric
+
+    best_by_objective = summary_dict.get('best_by_objective', None)
+    if isinstance(best_by_objective, list) and len(best_by_objective) > 0:
+        entry = best_by_objective[0]
+        if isinstance(entry, dict):
+            trial_node = entry.get('trial', None)
+            if isinstance(trial_node, dict):
+                return trial_node
+            if 'params' in entry or 'user_attrs' in entry:
+                return entry
+
+    raise ValueError(
+        'Could not extract stage-1 best trial from summary. '
+        'Expected best_by_distance or best_by_objective[0].'
     )
 
 
@@ -313,24 +316,86 @@ def resolve_stage_config(args):
     # stage2
     args.optimize_latent = False
     args.optimize_conv_type = False
-    args.conv_tag = args.conv_type
     args.use_stage1_defaults = False
     args.use_stage2_defaults = True
-
-    if int(args.stage2_latent_override) >= 2:
-        args.latent_channels = int(args.stage2_latent_override)
-        return
+    args.stage2_init_model_fp = ''
+    args.stage2_best_trial_number = -1
 
     summary_fp = args.stage1_summary_fp or _default_stage1_summary_fp(args)
     if not osp.exists(summary_fp):
         raise FileNotFoundError(
-            'Stage-2 requires stage-1 best latent. '
+            'Stage-2 requires stage-1 best model/weights/params. '
             f'Summary file not found: {summary_fp}. '
-            'Pass --stage1_summary_fp or --stage2_latent_override.'
+            'Pass --stage1_summary_fp.'
         )
     with open(summary_fp, 'r') as f:
         stage1_summary = json.load(f)
-    args.latent_channels = _extract_latent_from_summary(stage1_summary)
+    best_trial = _extract_stage1_best_trial(stage1_summary)
+    best_params = best_trial.get('params', {})
+    best_user_attrs = best_trial.get('user_attrs', {})
+
+    best_latent = _extract_latent_from_summary(stage1_summary)
+    if int(args.stage2_latent_override) >= 2:
+        args.latent_channels = int(args.stage2_latent_override)
+    else:
+        args.latent_channels = int(best_latent)
+
+    model_fp = str(best_user_attrs.get('model_fp', '')).strip()
+    if not model_fp:
+        raise ValueError(
+            'Stage-2 requires stage-1 best model checkpoint path in summary user_attrs["model_fp"].'
+        )
+    if not osp.exists(model_fp):
+        raise FileNotFoundError(f'Stage-1 best model checkpoint not found: {model_fp}')
+
+    ckpt = torch.load(model_fp, map_location='cpu')
+    ckpt_latent = int(ckpt.get('latent_channels', args.latent_channels))
+    if ckpt_latent != int(args.latent_channels):
+        raise ValueError(
+            f'Stage-2 latent ({args.latent_channels}) must match stage-1 checkpoint latent ({ckpt_latent}). '
+            'Use matching --stage2_latent_override or remove override.'
+        )
+
+    # Carry forward best stage-1 model architecture/config for stage-2 warm start.
+    args.in_channels = int(ckpt.get('in_channels', args.in_channels))
+    args.out_channels = [int(v) for v in ckpt.get('out_channels', args.out_channels)]
+    args.seq_length = [int(v) for v in ckpt.get('seq_length', args.seq_length)]
+    args.dilation = [int(v) for v in ckpt.get('dilation', args.dilation)]
+    args.conv_type = str(ckpt.get('conv_type', args.conv_type)).strip().lower()
+    args.adaptive_hidden = int(ckpt.get('adaptive_hidden', args.adaptive_hidden))
+    args.adaptive_dropout = float(ckpt.get('adaptive_dropout', args.adaptive_dropout))
+    args.adaptive_global_context = bool(
+        ckpt.get('adaptive_global_context', args.adaptive_global_context)
+    )
+    args.age_label_index = int(ckpt.get('age_label_index', args.age_label_index))
+    args.age_latent_index = int(ckpt.get('age_latent_index', args.age_latent_index))
+
+    # If stage-1 tuned additional params in older/newer runs, honor them when present.
+    if 'batch_size' in best_params:
+        args.batch_size = int(best_params['batch_size'])
+    if 'learning_rate' in best_params:
+        args.lr = float(best_params['learning_rate'])
+    if 'learning_rate_decay' in best_params:
+        args.lr_decay = float(best_params['learning_rate_decay'])
+    if 'decay_step' in best_params:
+        args.decay_step = int(best_params['decay_step'])
+    if 'weight_decay' in best_params:
+        args.weight_decay = float(best_params['weight_decay'])
+    if 'epochs' in best_params:
+        args.epochs = int(best_params['epochs'])
+    if 'sequence_length' in best_params:
+        seq_len = int(best_params['sequence_length'])
+        args.seq_length = [seq_len, seq_len, seq_len, seq_len]
+    if 'dilation' in best_params:
+        dil = int(best_params['dilation'])
+        args.dilation = [dil, dil, dil, dil]
+    if 'out_channel' in best_params:
+        oc = int(best_params['out_channel'])
+        args.out_channels = [oc, oc, oc, 2 * oc]
+
+    args.conv_tag = args.conv_type
+    args.stage2_init_model_fp = model_fp
+    args.stage2_best_trial_number = int(best_trial.get('number', -1))
     args.stage1_summary_fp = summary_fp
 
 
@@ -915,6 +980,13 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
         transform_data,
         transform_device,
     )
+    stage2_init_state_dict = None
+    if base_args.optuna_stage == 'stage2':
+        init_fp = str(getattr(base_args, 'stage2_init_model_fp', '')).strip()
+        if not init_fp:
+            raise ValueError('Stage-2 requires stage2_init_model_fp from stage-1 best model.')
+        init_ckpt = torch.load(init_fp, map_location='cpu')
+        stage2_init_state_dict = init_ckpt['model_state_dict']
 
     def objective(trial):
         args = copy.deepcopy(base_args)
@@ -1077,6 +1149,9 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 force_deterministic_latent=args.force_deterministic_latent,
             ).to(primary_device)
 
+        if stage == 'stage2':
+            model.load_state_dict(stage2_init_state_dict, strict=True)
+
         data_device = get_data_device(model, primary_device)
 
         optimizer = torch.optim.Adam(
@@ -1226,6 +1301,8 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
                 'parallel_mode': args.parallel_mode,
                 'model_parallel_gpu_ids': list(args.model_parallel_gpu_ids),
                 'stage': stage,
+                'stage2_init_model_fp': str(getattr(args, 'stage2_init_model_fp', '')),
+                'stage2_best_trial_number': int(getattr(args, 'stage2_best_trial_number', -1)),
                 'conv_type': args.conv_type,
                 'adaptive_hidden': int(args.adaptive_hidden),
                 'adaptive_dropout': float(args.adaptive_dropout),
@@ -1254,6 +1331,11 @@ def create_objective(base_args, meshdata, transform_data, primary_device):
 
         trial.set_user_attr('objective_split', 'val')
         trial.set_user_attr('stage', str(stage))
+        trial.set_user_attr('stage2_init_model_fp', str(getattr(args, 'stage2_init_model_fp', '')))
+        trial.set_user_attr(
+            'stage2_best_trial_number',
+            int(getattr(args, 'stage2_best_trial_number', -1)),
+        )
         trial.set_user_attr('latent_channels', int(args.latent_channels))
         trial.set_user_attr('parallel_mode', str(args.parallel_mode))
         trial.set_user_attr('gpu_tag', str(args.gpu_tag))
@@ -1365,6 +1447,9 @@ def main(argv=None):
             print(f"Stage-2 fixed latent: {args.latent_channels}")
             if args.stage1_summary_fp:
                 print(f"Stage-2 latent source summary: {args.stage1_summary_fp}")
+            if args.stage2_init_model_fp:
+                print(f"Stage-2 warm-start model: {args.stage2_init_model_fp}")
+                print(f"Stage-2 warm-start trial: {args.stage2_best_trial_number}")
 
         print(args.data_fp)
         template_fp = osp.join(args.data_fp, 'template', 'template.ply')
